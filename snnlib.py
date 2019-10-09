@@ -37,6 +37,11 @@ class Spiking:
     threshold = -40
     refractory_period = 3
 
+    gpu = torch.cuda.is_available()
+    seed = 0
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
     def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0):
         """
         The constructor of the class, 'Spiking'
@@ -55,6 +60,12 @@ class Spiking:
         self.batch = 1
         self.train_data_num = None
         self.test_data_num = None
+
+        if self.gpu:
+            print('GPU available.')
+            self.network.to('cuda')
+        else:
+            print('Only CPU.')
 
         input_layer = Input(n=input_l, traces=True)
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
@@ -102,7 +113,7 @@ class Spiking:
         connection = Connection(
             source=self.pre['layer'],
             target=layer,
-            w=0.05 + 0.1 * torch.randn(self.pre['layer'].n, layer.n),
+            w=0.3 + 0.1 * torch.randn(self.pre['layer'].n, layer.n),
             update_rule=PostPre,
             nu=1e-4
         )
