@@ -8,7 +8,7 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre
-from bindsnet.encoding import poisson
+from bindsnet.encoding import poisson, PoissonEncoder
 from bindsnet.datasets import MNIST
 
 from tqdm import tqdm
@@ -32,13 +32,16 @@ class Spiking:
     PROJECT_ROOT = os.getcwd()
     IMAGE_DIR = PROJECT_ROOT + '/images/'
 
-    rest_voltage = -65
-    reset_voltage = -65
-    threshold = -40
-    refractory_period = 3
+    rest_voltage = -65  # mV. 静止膜電位
+    reset_voltage = -65  # mV. リセット膜電位．通常は静止膜電位と一緒
+    threshold = -40  # mV. 発火閾値
+    refractory_period = 3  # ms. 不応期
+
+    input_firing_rate = 100.  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
 
     gpu = torch.cuda.is_available()
     seed = 0
+
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -48,7 +51,7 @@ class Spiking:
         :param input_l:
         :param obs_time:
         """
-        self.network = Network()
+        self.network: Network = Network()
         self.layer_index = 0
         self.input_l = input_l
         self.monitors = {}
@@ -60,6 +63,7 @@ class Spiking:
         self.batch = 1
         self.train_data_num = None
         self.test_data_num = None
+        self.layer_names = []
 
         if self.gpu:
             print('GPU available.')
@@ -69,6 +73,7 @@ class Spiking:
 
         input_layer = Input(n=input_l, traces=True)
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
+        self.layer_names.append(self.input_layer_name)
 
         self.pre = {
             'layer': input_layer,
@@ -109,11 +114,12 @@ class Spiking:
             self.layer_index += 1
 
         self.network.add_layer(layer=layer, name=name)
+        self.layer_names.append(name)
 
         connection = Connection(
             source=self.pre['layer'],
             target=layer,
-            w=0.3 + 0.1 * torch.randn(self.pre['layer'].n, layer.n),
+            w=0.3 + 0.3 * torch.randn(self.pre['layer'].n, layer.n),
             update_rule=PostPre,
             nu=1e-4
         )
@@ -172,8 +178,16 @@ class Spiking:
 
         for i, data in tqdm(enumerate(self.train_loader)):
             for d in data['image']:
-                poisson_img = poisson(d * 255., time=self.T, dt=self.dt).reshape((self.T, 784))
+                # ポアソン分布に従ってスパイクに変換する
+                # 第１引数は発火率になる
+                poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
                 inputs_img = {'in': poisson_img}
+
+                # self.plot_poisson_img(
+                #     poisson_img, save=True,
+                #     file_name='PoissonImg_'+str(data['label'].numpy()[0])+'.png')
+
+                # run!
                 self.network.run(inpts=inputs_img, time=self.T)
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
@@ -216,7 +230,8 @@ class Spiking:
         :param dpi:
         :return:
         """
-        os.makedirs(self.IMAGE_DIR, exist_ok=True)
+
+        self.make_image_dir()
         spikes = {}
         for m_name in self.monitors:
             spikes[m_name] = self.monitors[m_name].get('s')
@@ -229,3 +244,65 @@ class Spiking:
             plt.savefig(self.IMAGE_DIR+file_name, dpi=dpi)
         plt.close()
 
+    def plot_poisson_img(self, image: torch.Tensor, save: bool = False,
+                         file_name='poisson_img.png', dpi: int = 300):
+        """
+        Plot a poisson image.
+        :param image:
+        :param save:
+        :param file_name:
+        :param dpi:
+        :return:
+        """
+
+        self.make_image_dir()
+
+        result_img = np.zeros((28, 28))
+        for dt_spike_img in image:
+            result_img += dt_spike_img.numpy().reshape((28, 28))
+
+        plt.imshow(result_img, cmap='winter')
+        plt.colorbar().set_label('# of spikes')
+
+        if not save:
+            plt.show()
+        else:
+            plt.savefig(self.IMAGE_DIR + file_name, dpi=dpi)
+
+        plt.close()
+
+    def plot_output_weights_map(self, index: int, save: bool = False,
+                                file_name: str = 'weight_map.png', dpi: int = 300):
+        """
+        Plot an afferent weight map of the last layer's [index]th neuron.
+        :param index:
+        :param save:
+        :param file_name:
+        :param dpi:
+        :return:
+        """
+        self.make_image_dir()
+
+        names = self.layer_names
+        last = len(names) - 1
+
+        # ネットワークの最終層の結合情報を取得
+        weight: torch.Tensor = self.network.connections[(names[last-1], names[last])].w
+        # ndarrayにして転置
+        weight = weight.numpy().T
+        # 欲しいマップを(28,28)の形にして画像としてカラーマップとして描画
+        weight = weight[index].reshape(28, 28)
+
+        plt.imshow(weight, cmap='coolwarm')
+        plt.colorbar()
+        if not save:
+            plt.show()
+        else:
+            plt.savefig(self.IMAGE_DIR + file_name, dpi=dpi)
+        plt.close()
+
+    def get_train_batch(self, index) -> torch.Tensor:
+        return self.train_loader[index]['data']
+
+    def make_image_dir(self):
+        return os.makedirs(self.IMAGE_DIR, exist_ok=True)
