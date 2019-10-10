@@ -21,3 +21,11 @@
 * まだGPU対応していない
 * コメントやドキュメントが不完全
 * コードの最適化が不完全
+
+## Examples
+![PoissonImage_0](example_images/PoissonImg_0.png)
+図．MNISTデータセットを定常ポアソン過程によりスパイク列に変換したもの  
+　　(最大発火率は100Hzとし300msのスパイク長のとき)
+  
+![spikes](example_images/spikes.png)
+図．2層のネットワークの各層各ニューロンの出力スパイク列

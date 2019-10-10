@@ -119,9 +119,9 @@ class Spiking:
         connection = Connection(
             source=self.pre['layer'],
             target=layer,
-            w=0.3 + 0.3 * torch.randn(self.pre['layer'].n, layer.n),
+            w=0.1 + 0.1 * torch.randn(self.pre['layer'].n, layer.n),
             update_rule=PostPre,
-            nu=1e-4
+            nu=1e-3
         )
 
         self.network.add_connection(connection,
@@ -293,7 +293,12 @@ class Spiking:
         # 欲しいマップを(28,28)の形にして画像としてカラーマップとして描画
         weight = weight[index].reshape(28, 28)
 
-        plt.imshow(weight, cmap='coolwarm')
+        # 必ずカラーマップの真ん中が0になるようにする
+        wmax = weight.max()
+        wmin = weight.min()
+        abs_max = abs(wmax) if abs(wmax) > abs(wmin) else abs(wmin)
+
+        plt.imshow(weight, cmap='coolwarm', vmax=abs_max, vmin=(-abs_max))
         plt.colorbar()
         if not save:
             plt.show()
