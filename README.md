@@ -1,5 +1,5 @@
-# snnlibpy (仮称)
-(Last update: 2019.10.09)  
+# WrappedBindsNET
+(Last update: 2019.10.10)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成．  
@@ -18,14 +18,6 @@
 
 ## 現状
 * 既存のSTDP学習は簡単できる
-* まだGPU対応していない
+* GPU (CUDA9以降は対応？)
 * コメントやドキュメントが不完全
 * コードの最適化が不完全
-
-## Examples
-![PoissonImage_0](example_images/PoissonImg_0.png)
-図．MNISTデータセットを定常ポアソン過程によりスパイク列に変換したもの  
-　　(最大発火率は100Hzとし300msのスパイク長のとき)
-  
-![spikes](example_images/spikes.png)
-図．2層のネットワークの各層各ニューロンの出力スパイク列
