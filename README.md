@@ -1,5 +1,5 @@
 # WrappedBindsNET
-(Last update: 2019.10.10)  
+(Last update: 2019.10.11)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成．  

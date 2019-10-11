@@ -5,7 +5,12 @@ if __name__ == '__main__':
     snn = Spiking(input_l=784, obs_time=300)
 
     # レイヤーを追加　数とニューロンモデルを指定する
-    snn.add_layer(n=500, node=snn.LIF)
+    snn.add_layer(n=500, node=snn.LIF,
+                  w=snn.W_RANDOM,
+                  w_max=0.5, w_min=-0.1)
+
+    # 即抑制層を追加
+    snn.add_inhibit_layer()
 
     # データセットの選択
     snn.load_MNIST(batch=10)
