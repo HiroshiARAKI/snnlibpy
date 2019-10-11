@@ -16,7 +16,7 @@
 
 ## Example
 * Code (main.py)
-```cpp
+```python
 from snnlib import Spiking
 
 if __name__ == '__main__':
