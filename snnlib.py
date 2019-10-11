@@ -24,7 +24,6 @@ from bindsnet.encoding import poisson
 from bindsnet.datasets import MNIST
 from bindsnet.evaluation import all_activity
 
-
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -81,6 +80,7 @@ class Spiking:
         self.original = []
         self.input_layer_name = 'in'
         self.dt = dt
+        self.train_data=  None
         self.train_loader = None
         self.test_loader = None
         self.batch = 1
@@ -270,16 +270,16 @@ class Spiking:
         self.train_data_num = 60000
         self.test_data_num = 10000
 
-        train_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
-                           train=True,
-                           download=True,
-                           transform=transforms.ToTensor())
+        self.train_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
+                                train=True,
+                                download=True,
+                                transform=transforms.ToTensor())
         test_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
                           train=False,
                           download=True,
                           transform=transforms.ToTensor())
 
-        self.train_loader = DataLoader(train_data,
+        self.train_loader = DataLoader(self.train_data,
                                        batch_size=batch,
                                        shuffle=True)
         self.test_loader = DataLoader(test_data,
@@ -350,17 +350,28 @@ class Spiking:
 
         plt.close()
 
-    def plot_spikes(self, save: bool = False,
+    def plot_spikes(self, save: bool = False, index: int = 0,
                     file_name: str = 'spikes.png', dpi: int = DPI):
         """
         Plot spike trains of all neurons as a scatter plot.
         :param save:
+        :param index:
         :param file_name:
         :param dpi:
         :return:
         """
 
         self.make_image_dir()
+
+        data = self.train_data[index]
+        d = data['image']
+        label = data['label']
+
+        poisson_img = poisson(d * self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+        inputs_img = {'in': poisson_img}
+
+        self.network.run(inpts=inputs_img, time=self.T)
+
         spikes = {}
         for m_name in self.monitors:
             spikes[m_name] = self.monitors[m_name].get('s')
@@ -370,7 +381,7 @@ class Spiking:
         if not save:
             plt.show()
         else:
-            plt.savefig(self.IMAGE_DIR+file_name, dpi=dpi)
+            plt.savefig(self.IMAGE_DIR+'label_'+str(label)+file_name, dpi=dpi)
         plt.close()
 
     def plot_poisson_img(self, image: torch.Tensor, save: bool = False,

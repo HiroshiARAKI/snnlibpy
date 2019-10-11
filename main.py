@@ -5,12 +5,13 @@ if __name__ == '__main__':
     snn = Spiking(input_l=784, obs_time=300)
 
     # レイヤーを追加　数とニューロンモデルを指定する
-    # 以下の場合は重みを平均0.2，分散0.2で初期化
-    # STDPの学習率は(pre, post)=(1e-3, 1e-3)で指定
-    snn.add_layer(n=500, node=snn.LIF,
-                  w=snn.W_NORMAL_DIST,
-                  mu=0.2, sigma=0.2,
-                  nu=(1e-3, 1e-3))
+    # STDPの学習率は(pre, post)で指定
+    snn.add_layer(n=300, node=snn.LIF,
+                  w=snn.W_SIMPLE_RAND,
+                  rule=snn.SIMPLE_STDP,
+                  scale=0.3,
+                  nu=(1e-3, 1e-2),
+                  )
 
     # 即抑制層を追加
     snn.add_inhibit_layer()
@@ -18,15 +19,21 @@ if __name__ == '__main__':
     # データセットの選択
     snn.load_MNIST(batch=10)
 
-    # weight mapを描画
+    # 学習前のスパイク列を訓練データから10個プロット
+    for i in range(10):
+        snn.plot_spikes(save=True, index=i)
+
+    # 訓練前のweight mapを描画
     for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+        snn.plot_output_weights_map(index=i, save=True, file_name='pre_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run(tr_size=1000)
+    snn.run(tr_size=10000)
 
+    # 訓練後のweight mapを描画
     for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='1000_wmp_'+str(i)+'.png')
+        snn.plot_output_weights_map(index=i, save=True, file_name='result_wmp_'+str(i)+'.png')
 
-    # 学習後のスパイク列をプロット
-    snn.plot_spikes(save=True)
+    # 学習後のスパイク列を訓練データから10個プロット
+    for i in range(10):
+        snn.plot_spikes(save=True, index=i)
