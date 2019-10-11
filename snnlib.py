@@ -118,7 +118,7 @@ class Spiking:
         :param name:
         :param node:
         :param w:
-        :param kwargs: mu, sigma, w_max and w_min are available
+        :param kwargs: nu (learning rate of STDP), mu, sigma, w_max and w_min are available
         :return:
         """
 
@@ -151,13 +151,17 @@ class Spiking:
         self.network.add_layer(layer=layer, name=name)
         self.layer_names.append(name)
 
-        print(w.max(), w.min())
+        if 'nu' not in kwargs:
+            nu = (1e-3, 1e-3)
+        else:
+            nu = kwargs['nu']
+
         connection = Connection(
             source=self.pre['layer'],
             target=layer,
             w=w,
             update_rule=PostPre,
-            nu=1e-3
+            nu=nu
         )
 
         self.network.add_connection(connection,
@@ -292,7 +296,7 @@ class Spiking:
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
-        print('Have finished running the network.')
+        print('\nHave finished running the network.')
 
     def predict(self, data: dict):
         num: int = self.network.layers[self.layer_names[-1]].n
@@ -429,11 +433,11 @@ class Spiking:
         print('\033[0m')
 
     @staticmethod
-    def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3):
+    def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:
         return mu + sigma * torch.randn(n, m)
 
     @staticmethod
-    def weight_rand(n: int, m: int, w_max: float = 0.5, w_min: float = -0.5):
+    def weight_rand(n: int, m: int, w_max: float = 0.5, w_min: float = -0.5) -> torch.Tensor:
         x = torch.rand(n, m)
         x_max = x.max()
         x_min = x.min()
