@@ -19,10 +19,11 @@ from bindsnet.network.nodes import (Nodes, Input, LIFNodes, IFNodes, IzhikevichN
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
-from bindsnet.learning import PostPre
+from bindsnet.learning import PostPre, NoOp
 from bindsnet.encoding import poisson
 from bindsnet.datasets import MNIST
 from bindsnet.evaluation import all_activity
+
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -42,8 +43,12 @@ class Spiking:
     DIEHL_COOK = DiehlAndCookNodes
     ADAPTIVE_LIF = AdaptiveLIFNodes
 
+    NO_STDP: str = 'No_STDP'
+    SIMPLE_STDP: str = 'Simple_STDP'
+
     W_NORMAL_DIST: int = 0
     W_RANDOM: int = 1
+    W_SIMPLE_RAND: int = 3
 
     PROJECT_ROOT: str = os.getcwd()
     IMAGE_DIR: str = PROJECT_ROOT + '/images/'
@@ -111,13 +116,14 @@ class Spiking:
         self.network.add_monitor(monitor=monitor, name=self.input_layer_name)
 
     def add_layer(self, n: int, name='', node: Nodes = LIF,
-                  w=W_NORMAL_DIST, **kwargs):
+                  w=W_NORMAL_DIST, rule=SIMPLE_STDP, **kwargs):
         """
         Add a full connection layer that consists LIF neuron.
         :param n:
         :param name:
         :param node:
         :param w:
+        :param rule:
         :param kwargs: nu (learning rate of STDP), mu, sigma, w_max and w_min are available
         :return:
         """
@@ -147,6 +153,12 @@ class Spiking:
 
                 w = self.weight_rand(self.pre['layer'].n, layer.n,
                                      w_max=w_max, w_min=w_min)
+            if w is self.W_SIMPLE_RAND:
+                if 'scale' not in kwargs:
+                    scale = 0.3
+                else:
+                    scale = kwargs['scale']
+                w = self.weight_simple_rand(self.pre['layer'].n, layer.n, scale)
 
         self.network.add_layer(layer=layer, name=name)
         self.layer_names.append(name)
@@ -156,12 +168,19 @@ class Spiking:
         else:
             nu = kwargs['nu']
 
+        if rule == self.SIMPLE_STDP:
+            l_rule = PostPre
+        elif rule == self.NO_STDP:
+            l_rule = NoOp
+        else:
+            l_rule = NoOp
+
         connection = Connection(
             source=self.pre['layer'],
             target=layer,
             w=w,
-            update_rule=PostPre,
-            nu=nu
+            update_rule=l_rule,
+            nu=nu,
         )
 
         self.network.add_connection(connection,
@@ -179,6 +198,8 @@ class Spiking:
 
         self.pre['layer'] = layer
         self.pre['name'] = name
+
+        print('-- Added', name, 'with the Learning rule,', rule)
 
     def add_inhibit_layer(self, n: int = None, name='', node: Nodes = LIF,
                           exc_w: float = 22.5, inh_w: float = -17.5):
@@ -273,7 +294,7 @@ class Spiking:
         self.print_model()
 
         if tr_size is None:
-            tr_size = self.train_data_num
+            tr_size = int(self.train_data_num / self.batch)
         else:
             tr_size = int(tr_size / self.batch)
 
@@ -442,3 +463,8 @@ class Spiking:
         x_max = x.max()
         x_min = x.min()
         return ((x - x_min) / (x_max - x_min)) * (w_max - w_min) + w_min
+
+    @staticmethod
+    def weight_simple_rand(n: int, m: int, scale: float = 0.3) -> torch.Tensor:
+        return scale * torch.rand(n, m)
+

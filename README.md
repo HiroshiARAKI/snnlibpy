@@ -15,7 +15,7 @@
 * PyTorch....1.10
 
 ## Example
-* Code (main.py)
+* Code
 ```python
 from snnlib import Spiking
 
@@ -39,13 +39,13 @@ if __name__ == '__main__':
 
     # weight mapを描画
     for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+        snn.plot_output_weights_map(index=i, save=True, file_name='pre_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run(tr_size=1000)
+    snn.run()
 
     for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='1000_wmp_'+str(i)+'.png')
+        snn.plot_output_weights_map(index=i, save=True, file_name='result_wmp_'+str(i)+'.png')
 
     # 学習後のスパイク列をプロット
     snn.plot_spikes(save=True)
