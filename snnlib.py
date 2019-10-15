@@ -22,7 +22,7 @@ from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre, NoOp
 from bindsnet.encoding import poisson
 from bindsnet.datasets import MNIST
-from bindsnet.evaluation import all_activity
+from bindsnet.evaluation import all_activity, assign_labels, proportion_weighting
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -69,7 +69,7 @@ class Spiking:
 
     def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0):
         """
-        The constructor of the class, 'Spiking'
+        Constructor: Build SNN easily. Initialize many variables in backend.
         :param input_l:
         :param obs_time:
         """
@@ -80,13 +80,19 @@ class Spiking:
         self.original = []
         self.input_layer_name = 'in'
         self.dt = dt
-        self.train_data=  None
+        self.train_data = None
         self.train_loader = None
         self.test_loader = None
         self.batch = 1
         self.train_data_num = None
         self.test_data_num = None
+        self.label_num = 0
         self.layer_names = []
+
+        self.assignments = None
+        self.proportions = None
+        self.rates = None
+        self.accuracy = {'all': [], 'proportion': []}
 
         if self.gpu:
             print('GPU available.')
@@ -260,7 +266,7 @@ class Spiking:
                                     source=name,
                                     target=self.pre['name'])
 
-    def load_MNIST(self, batch: int = 1):
+    def load_MNIST(self, batch: int = 100):
         """
         Load MNIST dataset from pyTorch.
         :param batch:
@@ -269,6 +275,7 @@ class Spiking:
         self.batch = batch
         self.train_data_num = 60000
         self.test_data_num = 10000
+        self.label_num = 10
 
         self.train_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
                                 train=True,
@@ -293,6 +300,8 @@ class Spiking:
         """
         self.print_model()
 
+        print()
+        act_acc, pro_acc = (0., 0.)
         if tr_size is None:
             tr_size = int(self.train_data_num / self.batch)
         else:
@@ -300,29 +309,59 @@ class Spiking:
 
         progress = tqdm(enumerate(self.train_loader))
         for i, data in progress:
-            progress.set_description_str("Train progress: (%d / %d)" % (i, tr_size))
+            progress.set_description_str(
+                    "Train progress: (%d / %d) -- all: %f, pro: %f "
+                    % (i, tr_size, act_acc, pro_acc)
+            )
 
-            self.predict(data)
+            spikes = torch.zeros(self.batch, self.T, 784)
+            labels = torch.zeros(self.batch)
 
-            for d in data['image']:  # batch loop
-
+            for (j, d), l in zip(enumerate(data['image']), data['label']):  # batch loop
                 # ポアソン分布に従ってスパイクに変換する
                 # 第１引数は発火率になる
                 poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
                 inputs_img = {'in': poisson_img}
-
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
+                spikes[j] = poisson_img
+                labels[j] = l
+
+            # 1バッチ分の精度を計る
+            act_acc, pro_acc = self.predict(spikes, labels)
+            self.accuracy['all'].append(act_acc)
+            self.accuracy['proportion'].append(pro_acc)
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
         print('\nHave finished running the network.')
+        print(self.accuracy)
+        plt.plot(self.accuracy['all'], label='all', c='b', marker='.')
+        plt.plot(self.accuracy['proportion'], label='proportion', c='g', marker='.')
+        plt.legend()
+        plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
 
-    def predict(self, data: dict):
-        num: int = self.network.layers[self.layer_names[-1]].n
-        label = data['label']
-        pass
+    def predict(self, spikes, labels):
+        """
+        Compute the accuracies with spike activities and proportion weighting.
+        :param spikes:
+        :param labels:
+        :return:
+        """
+        # ラベル付
+        self.assignments, self.proportions, self.rates = assign_labels(spikes,
+                                                                       labels,
+                                                                       self.label_num,
+                                                                       self.rates)
+
+        act_pred = all_activity(spikes, self.assignments, self.label_num)
+        pro_pred = proportion_weighting(spikes, self.assignments, self.proportions, self.label_num)
+
+        act_acc = torch.sum(labels.long() == act_pred).item() / self.batch
+        pro_acc = torch.sum(labels.long() == pro_pred).item() / self.batch
+
+        return act_acc, pro_acc
 
     def plot_out_voltage(self, index: int, save: bool = False,
                          file_name: str = 'out_voltage.png', dpi: int = DPI):

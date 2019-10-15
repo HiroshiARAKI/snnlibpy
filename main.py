@@ -9,15 +9,15 @@ if __name__ == '__main__':
     snn.add_layer(n=300, node=snn.LIF,
                   w=snn.W_SIMPLE_RAND,
                   rule=snn.SIMPLE_STDP,
-                  scale=0.3,
-                  nu=(1e-3, 1e-2),
+                  scale=0.4,
+                  nu=(1e-4, 1e-2),
                   )
 
     # 即抑制層を追加
     snn.add_inhibit_layer()
 
     # データセットの選択
-    snn.load_MNIST(batch=10)
+    snn.load_MNIST(batch=100)
 
     # 学習前のスパイク列を訓練データから10個プロット
     for i in range(10):
@@ -28,7 +28,7 @@ if __name__ == '__main__':
         snn.plot_output_weights_map(index=i, save=True, file_name='pre_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run(tr_size=10000)
+    snn.run(tr_size=1000)
 
     # 訓練後のweight mapを描画
     for i in range(5):

@@ -3,7 +3,7 @@
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
-この小さなライブラリは，全て**[snnlib.py](snnlib.py)**に詰められていますので，各種定数などはかなり弄りやすいかと思います．  
+この小さなライブラリは，全て[snnlib.py](snnlib.py)に詰められていますので，各種定数などはかなり弄りやすいかと思います．  
 もちろん，main.pyから直接クラス変数は変更できます．  
 
 
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 [BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python](https://www.frontiersin.org/articles/10.3389/fninf.2018.00089/full)
 
 ## 現状
-* 既存のSTDP学習は簡単できる
+* 既存のSTDP学習は簡単にできる
 * GPU (CUDA9以降は対応？)
 * コメントやドキュメントが不完全
 * コードの最適化が不完全
