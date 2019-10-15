@@ -35,6 +35,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
+    # ======= Constants ======= #
     LIF = LIFNodes
     IF = IFNodes
     IZHIKEVICH = IzhikevichNodes
@@ -52,14 +53,16 @@ class Spiking:
     PROJECT_ROOT: str = os.getcwd()
     IMAGE_DIR: str = PROJECT_ROOT + '/images/'
 
-    DPI = 150  # 標準の保存グラフdpi (画質)
+    DPI: int = 150  # 標準の保存グラフdpi (画質)
 
     rest_voltage = -65  # mV. 静止膜電位
     reset_voltage = -65  # mV. リセット膜電位．通常は静止膜電位と一緒
     threshold = -40  # mV. 発火閾値
     refractory_period = 3  # ms. 不応期
 
-    input_firing_rate = 100.  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
+    input_firing_rate: float = 100  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
+
+    # ======================== #
 
     gpu = torch.cuda.is_available()
     seed = 0
