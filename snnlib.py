@@ -28,6 +28,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+from time import time
 
 
 class Spiking:
@@ -68,7 +69,12 @@ class Spiking:
     seed = 0
 
     np.random.seed(seed)
-    torch.manual_seed(seed)
+
+    if gpu:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        torch.cuda.manual_seed_all(seed)
+    else:
+        torch.manual_seed(seed)
 
     def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0):
         """
@@ -310,12 +316,10 @@ class Spiking:
         else:
             tr_size = int(tr_size / self.batch)
 
-        progress = tqdm(enumerate(self.train_loader))
+        progress = enumerate(self.train_loader)
+        start = time()
         for i, data in progress:
-            progress.set_description_str(
-                    "Train progress: (%d / %d) -- all: %f, pro: %f "
-                    % (i, tr_size, act_acc, pro_acc)
-            )
+            print('\033[31mProgress: %d / %d epochs. (%.4f seconds)\033[0m' % (i, tr_size, time() - start))
 
             spikes = torch.zeros(self.batch, self.T, 784)
             labels = torch.zeros(self.batch)
