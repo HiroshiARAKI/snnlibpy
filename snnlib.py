@@ -65,13 +65,12 @@ class Spiking:
 
     # ======================== #
 
-    gpu = torch.cuda.is_available()
+    gpu = torch.cuda.is_available()  # GPU is available?? -> if you wanna use gpu, you need to be cuda >= 9.0
     seed = 0
 
     np.random.seed(seed)
 
     if gpu:
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
         torch.cuda.manual_seed_all(seed)
     else:
         torch.manual_seed(seed)
@@ -275,7 +274,7 @@ class Spiking:
                                     source=name,
                                     target=self.pre['name'])
 
-    def load_MNIST(self, batch: int = 100):
+    def load_MNIST(self, batch: int = 1):
         """
         Load MNIST dataset from pyTorch.
         :param batch:
@@ -319,30 +318,38 @@ class Spiking:
         progress = enumerate(self.train_loader)
         start = time()
         for i, data in progress:
-            print('\033[31mProgress: %d / %d epochs. (%.4f seconds)\033[0m' % (i, tr_size, time() - start))
+            print('\033[31mProgress: %d / %d (%.4f seconds)\033[0m' % (i, tr_size, time() - start))
 
-            spikes = torch.zeros(self.batch, self.T, 784)
+            spikes = torch.zeros(self.batch, self.T, self.pre['layer'].n)
             labels = torch.zeros(self.batch)
 
-            for (j, d), l in zip(enumerate(data['image']), data['label']):  # batch loop
+            for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # batch loop
                 # ポアソン分布に従ってスパイクに変換する
-                # 第１引数は発火率になる
                 poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
                 inputs_img = {'in': poisson_img}
+
+                if self.gpu:
+                    inputs_img = {k: v.cuda() for k, v in inputs_img.items()}
+
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
-                spikes[j] = poisson_img
+
+                spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
                 labels[j] = l
+
+                self.network.reset_()
 
             # 1バッチ分の精度を計る
             act_acc, pro_acc = self.predict(spikes, labels)
+            print(' -- Transition accuracy: %d, proportion weight accuracy: %d' % (act_acc, pro_acc))
             self.accuracy['all'].append(act_acc)
             self.accuracy['proportion'].append(pro_acc)
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
-        print('\nHave finished running the network.')
+        print('\033[31mProgress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
+        print('\nHave finished running the network.\033[0m')
         print(self.accuracy)
         plt.plot(self.accuracy['all'], label='all', c='b', marker='.')
         plt.plot(self.accuracy['proportion'], label='proportion', c='g', marker='.')
