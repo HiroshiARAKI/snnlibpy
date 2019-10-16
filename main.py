@@ -17,7 +17,7 @@ if __name__ == '__main__':
     snn.add_inhibit_layer()
 
     # データセットの選択
-    snn.load_MNIST(batch=500)
+    snn.load_MNIST(batch=100)
 
     # 学習前のスパイク列を訓練データから10個プロット
     for i in range(10):

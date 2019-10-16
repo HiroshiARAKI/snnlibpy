@@ -317,8 +317,6 @@ class Spiking:
         """
         self.print_model()
 
-        print()
-        act_acc, pro_acc = (0., 0.)
         if tr_size is None:
             tr_size = int(self.train_data_num / self.batch)
         else:
@@ -350,7 +348,7 @@ class Spiking:
 
             # 1バッチ分の精度を計る
             act_acc, pro_acc = self.predict(spikes, labels)
-            print(' -- Transition accuracy: %d, proportion weight accuracy: %d' % (act_acc, pro_acc))
+            print(' -- Transition accuracy: %4f, proportion weight accuracy: %4f' % (act_acc, pro_acc))
             self.accuracy['all'].append(act_acc)
             self.accuracy['proportion'].append(pro_acc)
 
