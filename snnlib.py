@@ -6,10 +6,11 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.11
+@update       2019.10.16
 """
 
 import torch
+import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
@@ -36,7 +37,10 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
+    __version__ = '0.1.1'
+
     # ======= Constants ======= #
+
     LIF = LIFNodes
     IF = IFNodes
     IZHIKEVICH = IzhikevichNodes
@@ -81,6 +85,11 @@ class Spiking:
         :param input_l:
         :param obs_time:
         """
+        print('\033[31mYou Called Spiking Neural Networks Library "WBN".')
+        print('=> WrappedBindsNET (This Library) :version. %s' % self.__version__)
+        print('=> PyTorch :version. %s' % torch.__version__)
+        print('=> TorchVision :version. %s\n' % torchvision.__version__)
+
         self.network: Network = Network()
         self.layer_index = 0
         self.input_l = input_l
@@ -103,10 +112,10 @@ class Spiking:
         self.accuracy = {'all': [], 'proportion': []}
 
         if self.gpu:
-            print('GPU available.')
+            print('GPU computing is available.')
             self.network.to('cuda')
         else:
-            print('Only CPU.')
+            print('You use Only CPU computing.')
 
         input_layer = Input(n=input_l, traces=True)
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
@@ -515,7 +524,6 @@ class Spiking:
             print(' '+l+'('+str(layers[l].n)+')', end='\n    |\n')
         print('  [END]')
         print('=============================')
-        print('\033[0m')
 
     @staticmethod
     def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:

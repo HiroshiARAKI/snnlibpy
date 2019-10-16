@@ -1,5 +1,7 @@
 # WrappedBindsNET
-(Last update: 2019.10.11)  
+![version](https://img.shields.io/badge/version-0.1.1-lightgray.svg?style=flat)
+
+(Last update: 2019.10.16)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -74,6 +76,6 @@ if __name__ == '__main__':
 
 ## 現状
 * 既存のSTDP学習は簡単にできる
-* GPU (CUDA9以降は対応？)
+* GPU不具合あり
 * コメントやドキュメントが不完全
 * コードの最適化が不完全

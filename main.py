@@ -9,7 +9,7 @@ if __name__ == '__main__':
     snn.add_layer(n=300, node=snn.LIF,
                   w=snn.W_SIMPLE_RAND,
                   rule=snn.SIMPLE_STDP,
-                  scale=0.4,
+                  scale=0.5,
                   nu=(1e-4, 1e-2),
                   )
 
