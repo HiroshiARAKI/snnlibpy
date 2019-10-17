@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.16
+@update       2019.10.17
 """
 
 import torch
@@ -51,9 +51,9 @@ class Spiking:
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'
 
-    W_NORMAL_DIST: int = 0
-    W_RANDOM: int = 1
-    W_SIMPLE_RAND: int = 3
+    W_NORMAL_DIST: int = 0  # 正規分布による初期化
+    W_RANDOM: int = 1  # 一様分布による初期化
+    W_SIMPLE_RAND: int = 3  # [0, 1]の一様分布による初期化
 
     PROJECT_ROOT: str = os.getcwd()
     IMAGE_DIR: str = PROJECT_ROOT + '/images/'
@@ -69,10 +69,11 @@ class Spiking:
 
     # ======================== #
 
-    gpu = torch.cuda.is_available()  # GPU is available?? -> if you wanna use gpu, you need to be cuda >= 9.0
+    gpu = torch.cuda.is_available()  # Is GPU available??
     seed = 0
 
     np.random.seed(seed)
+    plt.figure()
 
     if gpu:
         torch.cuda.manual_seed_all(seed)
@@ -98,6 +99,7 @@ class Spiking:
         self.input_layer_name = 'in'
         self.dt = dt
         self.train_data = None
+        self.test_data = None
         self.train_loader = None
         self.test_loader = None
         self.batch = 1
@@ -139,7 +141,9 @@ class Spiking:
         self.network.add_monitor(monitor=monitor, name=self.input_layer_name)
 
     def add_layer(self, n: int, name='', node: Nodes = LIF,
-                  w=W_NORMAL_DIST, rule=SIMPLE_STDP, **kwargs):
+                  w=W_NORMAL_DIST, rule=SIMPLE_STDP,
+                  wmax: float = 1, wmin: float = -1,
+                  **kwargs):
         """
         Add a full connection layer that consists LIF neuron.
         :param n:
@@ -147,6 +151,8 @@ class Spiking:
         :param node:
         :param w:
         :param rule:
+        :param wmax:
+        :param wmin:
         :param kwargs: nu (learning rate of STDP), mu, sigma, w_max and w_min are available
         :return:
         """
@@ -202,6 +208,8 @@ class Spiking:
             source=self.pre['layer'],
             target=layer,
             w=w,
+            wmax=wmax,
+            wmin=wmin,
             update_rule=l_rule,
             nu=nu,
         )
@@ -298,15 +306,15 @@ class Spiking:
                                 train=True,
                                 download=True,
                                 transform=transforms.ToTensor())
-        test_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
-                          train=False,
-                          download=True,
-                          transform=transforms.ToTensor())
+        self.test_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
+                               train=False,
+                               download=True,
+                               transform=transforms.ToTensor())
 
         self.train_loader = DataLoader(self.train_data,
                                        batch_size=batch,
                                        shuffle=True)
-        self.test_loader = DataLoader(test_data,
+        self.test_loader = DataLoader(self.test_data,
                                       batch_size=batch,
                                       shuffle=False)
 
@@ -325,7 +333,7 @@ class Spiking:
         progress = enumerate(self.train_loader)
         start = time()
         for i, data in progress:
-            print('\033[31mProgress: %d / %d (%.4f seconds)\033[0m' % (i, tr_size, time() - start))
+            print('\033[31mProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
             spikes = torch.zeros(self.batch, self.T, self.pre['layer'].n)
             labels = torch.zeros(self.batch)
@@ -335,16 +343,18 @@ class Spiking:
                 poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
                 inputs_img = {'in': poisson_img}
 
-                if self.gpu:
-                    inputs_img = {k: v.cuda() for k, v in inputs_img.items()}
-
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
 
                 spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
+                # spikes[j] = self.network.monitors[self.pre['name']].get('s').squeeze()
                 labels[j] = l
 
                 self.network.reset_()
+
+            # self.plot_output_weights_map(index=0, save=True, file_name='%d_wmp_' % (i+1) + str(0) + '.png')
+            # self.plot_output_weights_map(index=1, save=True, file_name='%d_wmp_' % (i+1) + str(1) + '.png')
+            # self.plot_output_weights_map(index=2, save=True, file_name='%d_wmp_' % (i+1) + str(2) + '.png')
 
             # 1バッチ分の精度を計る
             act_acc, pro_acc = self.predict(spikes, labels)
@@ -383,6 +393,86 @@ class Spiking:
         pro_acc = torch.sum(labels.long() == pro_pred).item() / self.batch
 
         return act_acc, pro_acc
+
+    def predict_train_accuracy(self):
+        """
+        Predict the accuracy of all training data.
+        :return:
+        """
+        # 一旦学習をさせなくする. 学習率を0へ.
+        rl = {}
+        for conn in self.network.connections:
+            rl[conn] = self.network.connections[conn].update_rule.nu
+            self.network.connections[conn].update_rule.nu = (0., 0.)
+
+        loader = DataLoader(self.train_data, batch_size=1, shuffle=True)
+        spikes = []
+        labels = []
+
+        print('Calculate training accuracy.')
+        progress = enumerate(tqdm(loader))
+        for i, data in progress:
+            inputs = data['image']
+            poisson_img = poisson(inputs*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+            inputs_img = {'in': poisson_img}
+
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            spikes.append(self.monitors[self.pre['name']].get('s').squeeze())
+            labels.append(data['label'])
+
+            self.network.reset_()
+
+        print(np.array(spikes).shape)
+        print(np.array(labels).shape)
+
+        print(self.predict(torch.tensor(spikes), torch.tensor(labels)))
+        # 学習再開
+        for conn in self.network.connections:
+            self.network.connections[conn].update_rule.nu = rl[conn]
+
+        return self.predict(torch.tensor(spikes), torch.tensor(labels))
+
+    def predict_test_accuracy(self):
+        """
+        Predict the accuracy of all test data.
+        :return:
+        """
+        # 一旦学習をさせなくする. 学習率を0へ.
+        rl = {}
+        for conn in self.network.connections:
+            rl[conn] = self.network.connections[conn].update_rule.nu
+            self.network.connections[conn].update_rule.nu = (0., 0.)
+
+        loader = DataLoader(self.test_data, batch_size=1, shuffle=True)
+        spikes = []
+        labels = []
+
+        print('Calculate test accuracy.')
+        progress = enumerate(tqdm(loader))
+        for i, data in progress:
+            inputs = data['image']
+            poisson_img = poisson(inputs * self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+            inputs_img = {'in': poisson_img}
+
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            spikes.append(self.monitors[self.pre['name']].get('s').squeeze())
+            labels.append(data['label'])
+
+            self.network.reset_()
+
+        print(np.array(spikes).shape)
+        print(np.array(labels).shape)
+
+        print(self.predict(torch.tensor(spikes), torch.tensor(labels)))
+        # 学習再開
+        for conn in self.network.connections:
+            self.network.connections[conn].update_rule.nu = rl[conn]
+
+        return self.predict(torch.tensor(spikes), torch.tensor(labels))
 
     def plot_out_voltage(self, index: int, save: bool = False,
                          file_name: str = 'out_voltage.png', dpi: int = DPI):

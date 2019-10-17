@@ -1,7 +1,7 @@
 # WrappedBindsNET
 ![version](https://img.shields.io/badge/version-0.1.1-lightgray.svg?style=flat)
 
-(Last update: 2019.10.16)  
+(Last update: 2019.10.17)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -12,7 +12,7 @@
 完全に個人利用ですが，使いたい人がいればご自由にどうぞ😎  
 (結構頻繁に小さな(大したことない)アップデートをしています．) 
   
-**未完成につきバグがまだあります．**   
+**未完成につきバグがまだある可能性があります．**   
 
 ## 実行保証環境 (Environment)
 以下の環境において問題なく実行可能なことを確認しています．  
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 [BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python](https://www.frontiersin.org/articles/10.3389/fninf.2018.00089/full)
 
 ## 現状
+* 訓練データとテストデータで精度を測定可能になった (このときSTDP学習はされない)
 * 既存のSTDP学習は簡単にできる
-* GPU不具合あり
 * コメントやドキュメントが不完全
 * コードの最適化が不完全
