@@ -20,7 +20,8 @@
 * OS.........MacOS 10.15 or Ubuntu 16.04 LTS
 * Python.....3.6.* or 3.7.*
 * BindsNET...0.2.5
-* PyTorch....1.10
+* PyTorch....1.10 
+  (GPU: torch... 1.3.0+cu92, torchvision... 0.4.1+cu92)
 
 ## Example
 * Code

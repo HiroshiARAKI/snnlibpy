@@ -374,13 +374,13 @@ class Spiking:
 
         if train:
             all_acc, prop_acc = (0, 0)
-            print('Pre-training accuracies (training data):')
+            print('\nPre-training accuracies (training data):')
             print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
             tr_accuracy['all'].append(all_acc)
             tr_accuracy['proportion'].append(prop_acc)
         if test:
             all_acc, prop_acc = self.predict_test_accuracy()
-            print('Pre-training accuracies (test data):')
+            print('\nPre-training accuracies (test data):')
             print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
             ts_accuracy['all'].append(all_acc)
             ts_accuracy['proportion'].append(prop_acc)
@@ -390,7 +390,7 @@ class Spiking:
 
         progress = enumerate(tqdm(DataLoader(self.train_data, batch_size=interval, shuffle=True)))
         for i, data in progress:
-
+            print('\nProgress: %d / %d' % (i+1, self.train_data_num / interval))
             for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # interval loop
                 # ポアソン分布に従ってスパイクに変換する
                 poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
@@ -401,13 +401,13 @@ class Spiking:
 
             if train:
                 all_acc, prop_acc = self.predict_train_accuracy(size=((i+1)*interval))
-                print('%d epoch=>accuracies (training data):')
+                print('\n%d epoch=>accuracies (training data):')
                 print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
                 tr_accuracy['all'].append(all_acc)
                 tr_accuracy['proportion'].append(prop_acc)
             if test:
                 all_acc, prop_acc = self.predict_test_accuracy()
-                print('%d epoch=>accuracies (test data):')
+                print('\n%d epoch=>accuracies (test data):')
                 print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
                 ts_accuracy['all'].append(all_acc)
                 ts_accuracy['proportion'].append(prop_acc)
@@ -466,7 +466,7 @@ class Spiking:
         spikes = torch.zeros(self.train_data_num, self.T, self.pre['layer'].n)
         labels = torch.zeros(self.train_data_num)
 
-        print('Calculate training accuracy.')
+        print('\n[Calculate training accuracy]')
         progress = enumerate(tqdm(loader))
         for i, data in progress:
             inputs = data['image']
@@ -506,7 +506,7 @@ class Spiking:
         spikes = torch.zeros(self.test_data_num, self.T, self.pre['layer'].n)
         labels = torch.zeros(self.test_data_num)
 
-        print('Calculate test accuracy.')
+        print('\n[Calculate test accuracy]')
         progress = enumerate(tqdm(loader))
         for i, data in progress:
             inputs = data['image']
