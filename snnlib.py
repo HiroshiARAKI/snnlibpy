@@ -351,7 +351,7 @@ class Spiking:
         print('\033[31mProgress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
         print('\nHave finished running the network.\033[0m')
 
-    def run_with_predict(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
+    def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
         """
         Run the network with prediction per the interval.
         :param interval:

@@ -29,7 +29,7 @@ if __name__ == '__main__':
         snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run_with_predict(interval=1000, plot=True)
+    snn.run_with_prediction(interval=1000, plot=True)
 
     # 訓練後のweight mapを描画
     for i in range(3):
