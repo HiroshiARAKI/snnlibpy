@@ -72,6 +72,8 @@ class Spiking:
     gpu = torch.cuda.is_available()  # Is GPU available??
     seed = 0
 
+    workers = 4 * torch.cuda.device_count() if gpu else -1
+
     np.random.seed(seed)
     plt.figure()
 
@@ -315,10 +317,14 @@ class Spiking:
 
         self.train_loader = DataLoader(self.train_data,
                                        batch_size=batch,
-                                       shuffle=True)
+                                       shuffle=True,
+                                       pin_memory=self.gpu,
+                                       num_workers=self.workers)
         self.test_loader = DataLoader(self.test_data,
                                       batch_size=batch,
-                                      shuffle=False)
+                                      shuffle=False,
+                                      pin_memory=self.gpu,
+                                      num_workers=self.workers)
 
     def run(self, tr_size=None):
         """
@@ -367,7 +373,7 @@ class Spiking:
         ts_accuracy = {'all': [], 'proportion': []}
 
         if train:
-            all_acc, prop_acc = self.predict_train_accuracy()
+            all_acc, prop_acc = (0, 0)
             print('Pre-training accuracies (training data):')
             print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
             tr_accuracy['all'].append(all_acc)
@@ -399,7 +405,7 @@ class Spiking:
                 labels[j] = l
 
                 if train:
-                    all_acc, prop_acc = self.predict_train_accuracy()
+                    all_acc, prop_acc = self.predict_train_accuracy(size=(i*interval+j))
                     print('%d epoch=>accuracies (training data):')
                     print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
                     tr_accuracy['all'].append(all_acc)
@@ -449,9 +455,10 @@ class Spiking:
 
         return act_acc, pro_acc
 
-    def predict_train_accuracy(self):
+    def predict_train_accuracy(self, size: int = None):
         """
         Predict the accuracy of all training data.
+        :param size
         :return:
         """
         # 一旦学習をさせなくする. 学習率を0へ.
@@ -460,7 +467,7 @@ class Spiking:
             rl[conn] = self.network.connections[conn].update_rule.nu
             self.network.connections[conn].update_rule.nu = (0., 0.)
 
-        loader = DataLoader(self.train_data, batch_size=1, shuffle=True)
+        loader = DataLoader(self.train_data, batch_size=1, shuffle=True, pin_memory=self.gpu, num_workers=self.workers)
         spikes = torch.zeros(self.train_data_num, self.T, self.pre['layer'].n)
         labels = torch.zeros(self.train_data_num)
 
@@ -478,6 +485,9 @@ class Spiking:
             labels[i] = data['label']
 
             self.network.reset_()
+
+            if size is not None and i > size:
+                break
 
         # 学習再開
         for conn in self.network.connections:
@@ -497,7 +507,7 @@ class Spiking:
             rl[conn] = self.network.connections[conn].update_rule.nu
             self.network.connections[conn].update_rule.nu = (0., 0.)
 
-        loader = DataLoader(self.test_data, batch_size=1, shuffle=True)
+        loader = DataLoader(self.test_data, batch_size=1, shuffle=True, pin_memory=self.gpu, num_workers=self.workers)
         spikes = torch.zeros(self.test_data_num, self.T, self.pre['layer'].n)
         labels = torch.zeros(self.test_data_num)
 
