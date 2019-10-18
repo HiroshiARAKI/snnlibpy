@@ -472,11 +472,6 @@ class Spiking:
             # run!
             self.network.run(inpts=inputs_img, time=self.T)
 
-            spikes.append(self.monitors[self.pre['name']].get('s').squeeze())
-            labels.append(data['label'])
-
-            self.network.reset_()
-
             spikes[i] = self.monitors[self.pre['name']].get('s').squeeze()
             labels[i] = data['label']
 
