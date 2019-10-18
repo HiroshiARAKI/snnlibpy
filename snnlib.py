@@ -86,7 +86,7 @@ class Spiking:
         :param input_l:
         :param obs_time:
         """
-        print('\033[31mYou Called Spiking Neural Networks Library "WBN".')
+        print('You Called Spiking Neural Networks Library "WBN".')
         print('=> WrappedBindsNET (This Library) :version. %s' % self.__version__)
         print('=> PyTorch :version. %s' % torch.__version__)
         print('=> TorchVision :version. %s\n' % torchvision.__version__)
@@ -291,6 +291,8 @@ class Spiking:
                                     source=name,
                                     target=self.pre['name'])
 
+        print('-- Added', name, 'as an inhibitory layer')
+
     def load_MNIST(self, batch: int = 1):
         """
         Load MNIST dataset from pyTorch.
@@ -333,7 +335,7 @@ class Spiking:
         progress = enumerate(self.train_loader)
         start = time()
         for i, data in progress:
-            print('\033[31mProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
+            print('Progress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
             for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # batch loop
                 # ポアソン分布に従ってスパイクに変換する
@@ -348,8 +350,8 @@ class Spiking:
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
-        print('\033[31mProgress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
-        print('\nHave finished running the network.\033[0m')
+        print('Progress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
+        print('\nHave finished running the network.')
 
     def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
         """
@@ -366,13 +368,13 @@ class Spiking:
 
         if train:
             all_acc, prop_acc = self.predict_train_accuracy()
-            print('\033[31mPre-training accuracies (training data):')
+            print('Pre-training accuracies (training data):')
             print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
             tr_accuracy['all'].append(all_acc)
             tr_accuracy['proportion'].append(prop_acc)
         if test:
             all_acc, prop_acc = self.predict_test_accuracy()
-            print('\033[31mPre-training accuracies (test data):')
+            print('Pre-training accuracies (test data):')
             print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
             ts_accuracy['all'].append(all_acc)
             ts_accuracy['proportion'].append(prop_acc)
@@ -398,20 +400,20 @@ class Spiking:
 
                 if train:
                     all_acc, prop_acc = self.predict_train_accuracy()
-                    print('\033[31m%d epoch=>accuracies (training data):')
+                    print('%d epoch=>accuracies (training data):')
                     print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
                     tr_accuracy['all'].append(all_acc)
                     tr_accuracy['proportion'].append(prop_acc)
                 if test:
                     all_acc, prop_acc = self.predict_test_accuracy()
-                    print('\033[31m%d epoch=>accuracies (test data):')
+                    print('%d epoch=>accuracies (test data):')
                     print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
                     ts_accuracy['all'].append(all_acc)
                     ts_accuracy['proportion'].append(prop_acc)
 
                 self.network.reset_()
 
-        print('\nHave finished running the network.\033[0m')
+        print('\nHave finished running the network.')
         print('Training:', tr_accuracy)
         print('Test:', ts_accuracy)
 
@@ -650,7 +652,6 @@ class Spiking:
         return os.makedirs(self.IMAGE_DIR, exist_ok=True)
 
     def print_model(self):
-        print('\033[31m')
         print('=============================')
         print('Show your network information below.')
         layers: dict[str: Nodes] = self.network.layers
