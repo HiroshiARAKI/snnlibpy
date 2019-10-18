@@ -335,8 +335,8 @@ class Spiking:
         for i, data in progress:
             print('\033[31mProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
-            spikes = torch.zeros(self.batch, self.T, self.pre['layer'].n)
-            labels = torch.zeros(self.batch)
+            # spikes = torch.zeros(self.batch, self.T, self.pre['layer'].n)
+            # labels = torch.zeros(self.batch)
 
             for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # batch loop
                 # ポアソン分布に従ってスパイクに変換する
@@ -346,9 +346,9 @@ class Spiking:
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
 
-                spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
+                # spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
                 # spikes[j] = self.network.monitors[self.pre['name']].get('s').squeeze()
-                labels[j] = l
+                # labels[j] = l
 
                 self.network.reset_()
 
@@ -357,10 +357,10 @@ class Spiking:
             # self.plot_output_weights_map(index=2, save=True, file_name='%d_wmp_' % (i+1) + str(2) + '.png')
 
             # 1バッチ分の精度を計る
-            act_acc, pro_acc = self.predict(spikes, labels)
-            print(' -- Transition accuracy: %4f, proportion weight accuracy: %4f' % (act_acc, pro_acc))
-            self.accuracy['all'].append(act_acc)
-            self.accuracy['proportion'].append(pro_acc)
+            # act_acc, pro_acc = self.predict(spikes, labels)
+            # print(' -- Transition accuracy: %4f, proportion weight accuracy: %4f' % (act_acc, pro_acc))
+            # self.accuracy['all'].append(act_acc)
+            # self.accuracy['proportion'].append(pro_acc)
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
@@ -368,10 +368,10 @@ class Spiking:
         print('\033[31mProgress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
         print('\nHave finished running the network.\033[0m')
         print(self.accuracy)
-        plt.plot(self.accuracy['all'], label='all', c='b', marker='.')
-        plt.plot(self.accuracy['proportion'], label='proportion', c='g', marker='.')
-        plt.legend()
-        plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
+        # plt.plot(self.accuracy['all'], label='all', c='b', marker='.')
+        # plt.plot(self.accuracy['proportion'], label='proportion', c='g', marker='.')
+        # plt.legend()
+        # plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
 
     def predict(self, spikes, labels):
         """
@@ -406,8 +406,8 @@ class Spiking:
             self.network.connections[conn].update_rule.nu = (0., 0.)
 
         loader = DataLoader(self.train_data, batch_size=1, shuffle=True)
-        spikes = []
-        labels = []
+        spikes = torch.zeros(self.train_data_num, self.T, self.pre['layer'].n)
+        labels = torch.zeros(self.train_data_num)
 
         print('Calculate training accuracy.')
         progress = enumerate(tqdm(loader))
@@ -424,15 +424,17 @@ class Spiking:
 
             self.network.reset_()
 
-        print(np.array(spikes).shape)
-        print(np.array(labels).shape)
+            spikes[i] = self.monitors[self.pre['name']].get('s').squeeze()
+            labels[i] = data['label']
 
-        print(self.predict(torch.tensor(spikes), torch.tensor(labels)))
+            self.network.reset_()
+
         # 学習再開
         for conn in self.network.connections:
             self.network.connections[conn].update_rule.nu = rl[conn]
 
-        return self.predict(torch.tensor(spikes), torch.tensor(labels))
+        all_acc, pro_acc = self.predict(spikes, labels)
+        return all_acc, pro_acc
 
     def predict_test_accuracy(self):
         """
@@ -446,8 +448,8 @@ class Spiking:
             self.network.connections[conn].update_rule.nu = (0., 0.)
 
         loader = DataLoader(self.test_data, batch_size=1, shuffle=True)
-        spikes = []
-        labels = []
+        spikes = torch.zeros(self.test_data_num, self.T, self.pre['layer'].n)
+        labels = torch.zeros(self.test_data_num)
 
         print('Calculate test accuracy.')
         progress = enumerate(tqdm(loader))
@@ -459,20 +461,17 @@ class Spiking:
             # run!
             self.network.run(inpts=inputs_img, time=self.T)
 
-            spikes.append(self.monitors[self.pre['name']].get('s').squeeze())
-            labels.append(data['label'])
+            spikes[i] = self.monitors[self.pre['name']].get('s').squeeze()
+            labels[i] = data['label']
 
             self.network.reset_()
 
-        print(np.array(spikes).shape)
-        print(np.array(labels).shape)
-
-        print(self.predict(torch.tensor(spikes), torch.tensor(labels)))
         # 学習再開
         for conn in self.network.connections:
             self.network.connections[conn].update_rule.nu = rl[conn]
 
-        return self.predict(torch.tensor(spikes), torch.tensor(labels))
+        all_acc, pro_acc = self.predict(spikes, labels)
+        return all_acc, pro_acc
 
     def plot_out_voltage(self, index: int, save: bool = False,
                          file_name: str = 'out_voltage.png', dpi: int = DPI):

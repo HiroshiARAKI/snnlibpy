@@ -31,7 +31,10 @@ if __name__ == '__main__':
     #     snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
+    snn.predict_train_accuracy()
     snn.run(tr_size=10000)
+    snn.predict_train_accuracy()
+    snn.predict_test_accuracy()
 
     # 訓練後のweight mapを描画
     for i in range(3):
