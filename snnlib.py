@@ -388,9 +388,6 @@ class Spiking:
         if interval is None:
             interval = self.train_data_num
 
-        spikes = torch.zeros(interval, self.T, self.pre['layer'].n)
-        labels = torch.zeros(interval)
-
         progress = enumerate(tqdm(DataLoader(self.train_data, batch_size=interval, shuffle=True)))
         for i, data in progress:
 
@@ -401,21 +398,19 @@ class Spiking:
 
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
-                spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
-                labels[j] = l
 
-                if train:
-                    all_acc, prop_acc = self.predict_train_accuracy(size=(i*interval+j))
-                    print('%d epoch=>accuracies (training data):')
-                    print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-                    tr_accuracy['all'].append(all_acc)
-                    tr_accuracy['proportion'].append(prop_acc)
-                if test:
-                    all_acc, prop_acc = self.predict_test_accuracy()
-                    print('%d epoch=>accuracies (test data):')
-                    print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-                    ts_accuracy['all'].append(all_acc)
-                    ts_accuracy['proportion'].append(prop_acc)
+            if train:
+                all_acc, prop_acc = self.predict_train_accuracy(size=((i+1)*interval))
+                print('%d epoch=>accuracies (training data):')
+                print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+                tr_accuracy['all'].append(all_acc)
+                tr_accuracy['proportion'].append(prop_acc)
+            if test:
+                all_acc, prop_acc = self.predict_test_accuracy()
+                print('%d epoch=>accuracies (test data):')
+                print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+                ts_accuracy['all'].append(all_acc)
+                ts_accuracy['proportion'].append(prop_acc)
 
                 self.network.reset_()
 
@@ -571,7 +566,11 @@ class Spiking:
         """
 
         self.make_image_dir()
-
+        # 一旦学習をさせなくする. 学習率を0へ.
+        rl = {}
+        for conn in self.network.connections:
+            rl[conn] = self.network.connections[conn].update_rule.nu
+            self.network.connections[conn].update_rule.nu = (0., 0.)
         data = self.train_data[index]
         d = data['image']
         label = data['label']
@@ -592,6 +591,10 @@ class Spiking:
         else:
             plt.savefig(self.IMAGE_DIR+'label_'+str(label)+file_name, dpi=dpi)
         plt.close()
+
+        # 学習再開
+        for conn in self.network.connections:
+            self.network.connections[conn].update_rule.nu = rl[conn]
 
     def plot_poisson_img(self, image: torch.Tensor, save: bool = False,
                          file_name='poisson_img.png', dpi: int = DPI):
