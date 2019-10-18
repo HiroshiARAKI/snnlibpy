@@ -20,21 +20,16 @@ if __name__ == '__main__':
     # データセットの選択
     snn.load_MNIST(batch=200)
 
-    snn.predict_test_accuracy()
-
     # 学習前のスパイク列を訓練データから10個プロット
-    # for i in range(10):
-    #     snn.plot_spikes(save=True, index=i)
+    for i in range(10):
+        snn.plot_spikes(save=True, index=i)
 
     # 訓練前のweight mapを描画
-    # for i in range(3):
-    #     snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+    for i in range(3):
+        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.predict_train_accuracy()
-    snn.run(tr_size=10000)
-    snn.predict_train_accuracy()
-    snn.predict_test_accuracy()
+    snn.run_with_predict(interval=1000, plot=True)
 
     # 訓練後のweight mapを描画
     for i in range(3):

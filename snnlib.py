@@ -37,7 +37,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.1'
+    __version__ = '0.1.2'
 
     # ======= Constants ======= #
 
@@ -320,7 +320,7 @@ class Spiking:
 
     def run(self, tr_size=None):
         """
-        Let the Network run.
+        Let the Network run simply.
         :return:
         """
         self.print_model()
@@ -335,9 +335,6 @@ class Spiking:
         for i, data in progress:
             print('\033[31mProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
-            # spikes = torch.zeros(self.batch, self.T, self.pre['layer'].n)
-            # labels = torch.zeros(self.batch)
-
             for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # batch loop
                 # ポアソン分布に従ってスパイクに変換する
                 poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
@@ -346,32 +343,88 @@ class Spiking:
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
 
-                # spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
-                # spikes[j] = self.network.monitors[self.pre['name']].get('s').squeeze()
-                # labels[j] = l
-
                 self.network.reset_()
-
-            # self.plot_output_weights_map(index=0, save=True, file_name='%d_wmp_' % (i+1) + str(0) + '.png')
-            # self.plot_output_weights_map(index=1, save=True, file_name='%d_wmp_' % (i+1) + str(1) + '.png')
-            # self.plot_output_weights_map(index=2, save=True, file_name='%d_wmp_' % (i+1) + str(2) + '.png')
-
-            # 1バッチ分の精度を計る
-            # act_acc, pro_acc = self.predict(spikes, labels)
-            # print(' -- Transition accuracy: %4f, proportion weight accuracy: %4f' % (act_acc, pro_acc))
-            # self.accuracy['all'].append(act_acc)
-            # self.accuracy['proportion'].append(pro_acc)
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
         print('\033[31mProgress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
         print('\nHave finished running the network.\033[0m')
-        print(self.accuracy)
-        # plt.plot(self.accuracy['all'], label='all', c='b', marker='.')
-        # plt.plot(self.accuracy['proportion'], label='proportion', c='g', marker='.')
-        # plt.legend()
-        # plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
+
+    def run_with_predict(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
+        """
+        Run the network with prediction per the interval.
+        :param interval:
+        :param train:
+        :param test:
+        :param plot:
+        :return:
+        """
+
+        tr_accuracy = {'all': [], 'proportion': []}
+        ts_accuracy = {'all': [], 'proportion': []}
+
+        if train:
+            all_acc, prop_acc = self.predict_train_accuracy()
+            print('\033[31mPre-training accuracies (training data):')
+            print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+            tr_accuracy['all'].append(all_acc)
+            tr_accuracy['proportion'].append(prop_acc)
+        if test:
+            all_acc, prop_acc = self.predict_test_accuracy()
+            print('\033[31mPre-training accuracies (test data):')
+            print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+            ts_accuracy['all'].append(all_acc)
+            ts_accuracy['proportion'].append(prop_acc)
+
+        if interval is None:
+            interval = self.train_data_num
+
+        spikes = torch.zeros(interval, self.T, self.pre['layer'].n)
+        labels = torch.zeros(interval)
+
+        progress = enumerate(tqdm(DataLoader(self.train_data, batch_size=interval, shuffle=True)))
+        for i, data in progress:
+
+            for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # interval loop
+                # ポアソン分布に従ってスパイクに変換する
+                poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+                inputs_img = {'in': poisson_img}
+
+                # run!
+                self.network.run(inpts=inputs_img, time=self.T)
+                spikes[j] = self.monitors[self.pre['name']].get('s').squeeze()
+                labels[j] = l
+
+                if train:
+                    all_acc, prop_acc = self.predict_train_accuracy()
+                    print('\033[31m%d epoch=>accuracies (training data):')
+                    print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+                    tr_accuracy['all'].append(all_acc)
+                    tr_accuracy['proportion'].append(prop_acc)
+                if test:
+                    all_acc, prop_acc = self.predict_test_accuracy()
+                    print('\033[31m%d epoch=>accuracies (test data):')
+                    print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
+                    ts_accuracy['all'].append(all_acc)
+                    ts_accuracy['proportion'].append(prop_acc)
+
+                self.network.reset_()
+
+        print('\nHave finished running the network.\033[0m')
+        print('Training:', tr_accuracy)
+        print('Test:', ts_accuracy)
+
+        if plot:
+            self.make_image_dir()
+            plt.plot(tr_accuracy['all'], label='all(tr)', c='b', marker='.')
+            plt.plot(tr_accuracy['proportion'], label='proportion(tr)', c='b', marker='.', linestyle='dashed')
+            plt.plot(ts_accuracy['all'], label='all(ts)', c='g', marker='.')
+            plt.plot(ts_accuracy['proportion'], label='proportion(ts)', c='g', marker='.', linestyle='dashed')
+            plt.legend()
+            plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
+
+        return tr_accuracy, ts_accuracy
 
     def predict(self, spikes, labels):
         """

@@ -1,7 +1,7 @@
 # WrappedBindsNET
-![version](https://img.shields.io/badge/version-0.1.1-lightgray.svg?style=flat)
+![version](https://img.shields.io/badge/version-0.1.2-lightgray.svg?style=flat)
 
-(Last update: 2019.10.17)  
+(Last update: 2019.10.18)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -33,32 +33,33 @@ if __name__ == '__main__':
 
     # レイヤーを追加　数とニューロンモデルを指定する
     # STDPの学習率は(pre, post)で指定
-    snn.add_layer(n=300, node=snn.LIF,
-                  w=snn.W_SIMPLE_RAND,
+    snn.add_layer(n=200,
+                  node=snn.LIF,
+                  w=snn.W_NORMAL_DIST,
                   rule=snn.SIMPLE_STDP,
-                  scale=0.3,
-                  nu=(1e-3, 1e-2),
+                  mu=0.3, sigma=0.35,
+                  nu=(1e-4, 1e-3),
                   )
 
     # 即抑制層を追加
     snn.add_inhibit_layer()
 
     # データセットの選択
-    snn.load_MNIST(batch=10)
+    snn.load_MNIST(batch=200)
 
     # 学習前のスパイク列を訓練データから10個プロット
     for i in range(10):
         snn.plot_spikes(save=True, index=i)
 
     # 訓練前のweight mapを描画
-    for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='pre_wmp_'+str(i)+'.png')
+    for i in range(3):
+        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run(tr_size=10000)
+    snn.run_with_predict(interval=1000, plot=True)
 
     # 訓練後のweight mapを描画
-    for i in range(5):
+    for i in range(3):
         snn.plot_output_weights_map(index=i, save=True, file_name='result_wmp_'+str(i)+'.png')
 
     # 学習後のスパイク列を訓練データから10個プロット
