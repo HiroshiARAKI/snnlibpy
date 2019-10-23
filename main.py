@@ -6,33 +6,36 @@ if __name__ == '__main__':
 
     # レイヤーを追加　数とニューロンモデルを指定する
     # STDPの学習率は(pre, post)で指定
-    snn.add_layer(n=200,
+    snn.add_layer(n=100,
                   node=snn.LIF,
-                  w=snn.W_NORMAL_DIST,
+                  w=snn.W_SIMPLE_RAND,
                   rule=snn.SIMPLE_STDP,
+                  scale=0.3,
                   mu=0.1, sigma=0.1,
                   nu=(1e-4, 1e-3),
                   )
 
     # 即抑制層を追加
-    snn.add_inhibit_layer()
+    snn.add_inhibit_layer(inh_w=-30)
 
     # データセットの選択
     snn.load_MNIST(batch=1)
 
     # gpu is available??
-    snn.gpu()
+    snn.to_gpu()
 
-    # 学習前のスパイク列を訓練データから10個プロット
-    for i in range(10):
-        snn.plot_spikes(save=True, index=i)
-
+    # # 学習前のスパイク列を訓練データから10個プロット
+    # for i in range(10):
+    #     snn.plot_spikes(save=True, index=i)
+    #
     # 訓練前のweight mapを描画
     for i in range(3):
         snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
+    snn.test(1000)
     # データを順伝播させる
-    snn.run()
+    snn.run(1000)
+    snn.test(1000)
 
     # 訓練後のweight mapを描画
     for i in range(3):

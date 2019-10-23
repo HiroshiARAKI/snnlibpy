@@ -37,7 +37,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.2'
+    __version__ = '0.1.3'
 
     # ======= Constants ======= #
 
@@ -67,20 +67,9 @@ class Spiking:
 
     intensity: float = 128  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
 
+    seed = 0  # 乱数シード
+
     # ======================== #
-
-    gpu = torch.cuda.is_available()  # Is GPU available??
-    seed = 0
-
-    workers = gpu * 4 * torch.cuda.device_count()
-
-    np.random.seed(seed)
-    plt.figure()
-
-    if gpu:
-        torch.cuda.manual_seed_all(seed)
-    else:
-        torch.manual_seed(seed)
 
     def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0):
         """
@@ -88,7 +77,7 @@ class Spiking:
         :param input_l:
         :param obs_time:
         """
-        print('You Called Spiking Neural Networks Library "WBN".')
+        print('You Called Spiking Neural Networks Library "WBN"!!')
         print('=> WrappedBindsNET (This Library) :version. %s' % self.__version__)
         print('=> PyTorch :version. %s' % torch.__version__)
         print('=> TorchVision :version. %s\n' % tv_ver)
@@ -109,6 +98,16 @@ class Spiking:
         self.test_data_num = None
         self.label_num = 0
         self.layer_names = []
+        self.gpu = torch.cuda.is_available()  # Is GPU available?
+
+        self.workers = self.gpu * 4 * torch.cuda.device_count()
+
+        np.random.seed(self.seed)
+
+        if self.gpu:
+            torch.cuda.manual_seed_all(self.seed)
+        else:
+            torch.manual_seed(self.seed)
 
         self.assignments = None
         self.proportions = None
@@ -359,7 +358,7 @@ class Spiking:
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
 
-        print('Progress: %d / %d data. (%.4f seconds)' % (tr_size, tr_size, time() - start))
+        print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
         print('\nHave finished running the network.')
 
     def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
@@ -542,6 +541,50 @@ class Spiking:
         all_acc, pro_acc = self.predict(spikes, labels)
         return all_acc, pro_acc
 
+    def test(self, data_num: int):
+        # Stop learning
+        rl = {}
+        for conn in self.network.connections:
+            rl[conn] = self.network.connections[conn].update_rule.nu
+            self.network.connections[conn].update_rule.nu = (0., 0.)
+
+        # the assignments of output neurons
+        assignment = torch.zeros(self.label_num, self.pre['layer'].n)
+
+        print('\n[Calculate train spikes and assign labels]')
+        progress = tqdm(enumerate(self.train_loader))
+        for i, data in progress:
+            progress.set_description_str('Assign labels... %d / %d ' % (i, data_num))
+            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            # output spike trains
+            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+            # sum of the number of spikes
+            sum_spikes = spikes.sum(0)
+
+            max_n_fire = sum_spikes.argmax(1)
+            labels = data['label']
+
+            for j, l in enumerate(labels):
+                assignment[l][max_n_fire[j]] += 1
+
+            self.network.reset_()
+
+            if i >= data_num:
+                break
+
+        # this result is assignment of output neurons
+        assignment = assignment.argmax(0)
+        print(assignment)
+
+        # make learning rates be back
+        for conn in self.network.connections:
+            self.network.connections[conn].update_rule.nu = rl[conn]
+
     def plot_out_voltage(self, index: int, save: bool = False,
                          file_name: str = 'out_voltage.png', dpi: int = DPI):
         """
@@ -688,7 +731,7 @@ class Spiking:
         print('  [END]')
         print('=============================')
 
-    def gpu(self):
+    def to_gpu(self):
         """
         Set gpu to the network if available.
         :return:
