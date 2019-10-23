@@ -20,16 +20,18 @@ if __name__ == '__main__':
     # データセットの選択
     snn.load_MNIST(batch=1)
 
-    # # 学習前のスパイク列を訓練データから10個プロット
-    # for i in range(10):
-    #     snn.plot_spikes(save=True, index=i)
-    #
-    # # 訓練前のweight mapを描画
-    # for i in range(3):
-    #     snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+    # gpu is available??
+    snn.gpu()
+
+    # 学習前のスパイク列を訓練データから10個プロット
+    for i in range(10):
+        snn.plot_spikes(save=True, index=i)
+
+    # 訓練前のweight mapを描画
+    for i in range(3):
+        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    # snn.run_with_prediction(interval=10000, plot=True)
     snn.run()
 
     # 訓練後のweight mapを描画

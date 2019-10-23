@@ -115,12 +115,6 @@ class Spiking:
         self.rates = None
         self.accuracy = {'all': [], 'proportion': []}
 
-        if self.gpu:
-            print('GPU computing is available.')
-            self.network.to('cuda')
-        else:
-            print('You use Only CPU computing.')
-
         input_layer = Input(n=input_l, traces=True, shape=(1, 28, 28))
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
         self.layer_names.append(self.input_layer_name)
@@ -339,6 +333,7 @@ class Spiking:
         Let the Network run simply.
         :return:
         """
+
         self.print_model()
 
         if tr_size is None:
@@ -346,15 +341,15 @@ class Spiking:
         else:
             tr_size = int(tr_size / self.batch)
 
-        progress = enumerate(self.train_loader)
+        progress = tqdm(enumerate(self.train_loader))
         start = time()
         for i, data in progress:
-            print('Progress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
+            progress.set_description_str('Progress: %d / %d (%.4f seconds)' % (i+1, tr_size, time() - start))
 
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
-            # if self.gpu:
-            #     inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
             # run!
             self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
@@ -522,12 +517,11 @@ class Spiking:
             rl[conn] = self.network.connections[conn].update_rule.nu
             self.network.connections[conn].update_rule.nu = (0., 0.)
 
-        loader = DataLoader(self.test_data, batch_size=1, shuffle=True, pin_memory=self.gpu, num_workers=self.workers)
         spikes = torch.zeros(self.test_data_num, self.T, self.pre['layer'].n)
         labels = torch.zeros(self.test_data_num)
 
         print('\n[Calculate test accuracy]')
-        progress = enumerate(tqdm(loader))
+        progress = tqdm(enumerate(self.test_loader))
         for i, data in progress:
             inputs = data['image']
             poisson_img = poisson(inputs * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
@@ -592,11 +586,11 @@ class Spiking:
             rl[conn] = self.network.connections[conn].update_rule.nu
             self.network.connections[conn].update_rule.nu = (0., 0.)
         data = self.train_data[index]
-        d = data['image']
         label = data['label']
 
-        poisson_img = poisson(d * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
-        inputs_img = {'in': poisson_img}
+        inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+        if self.gpu:
+            inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
         self.network.run(inpts=inputs_img, time=self.T)
 
@@ -693,6 +687,19 @@ class Spiking:
             print(' '+l+'('+str(layers[l].n)+')', end='\n    |\n')
         print('  [END]')
         print('=============================')
+
+    def gpu(self):
+        """
+        Set gpu to the network if available.
+        :return:
+        """
+        if self.gpu:
+            print('GPU computing is available.')
+            self.network.to('cuda')
+            return True
+        else:
+            print('You use Only CPU computing.')
+            return False
 
     @staticmethod
     def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:
