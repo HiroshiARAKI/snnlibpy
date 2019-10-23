@@ -10,7 +10,7 @@ if __name__ == '__main__':
                   node=snn.LIF,
                   w=snn.W_NORMAL_DIST,
                   rule=snn.SIMPLE_STDP,
-                  mu=0.3, sigma=0.35,
+                  mu=0.1, sigma=0.1,
                   nu=(1e-4, 1e-3),
                   )
 
@@ -18,18 +18,19 @@ if __name__ == '__main__':
     snn.add_inhibit_layer()
 
     # データセットの選択
-    snn.load_MNIST(batch=200)
+    snn.load_MNIST(batch=1)
 
-    # 学習前のスパイク列を訓練データから10個プロット
-    for i in range(10):
-        snn.plot_spikes(save=True, index=i)
-
-    # 訓練前のweight mapを描画
-    for i in range(3):
-        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+    # # 学習前のスパイク列を訓練データから10個プロット
+    # for i in range(10):
+    #     snn.plot_spikes(save=True, index=i)
+    #
+    # # 訓練前のweight mapを描画
+    # for i in range(3):
+    #     snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     # データを順伝播させる
-    snn.run_with_prediction(interval=10000, plot=True)
+    # snn.run_with_prediction(interval=10000, plot=True)
+    snn.run()
 
     # 訓練後のweight mapを描画
     for i in range(3):

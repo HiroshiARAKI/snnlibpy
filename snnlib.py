@@ -10,7 +10,7 @@ snnlib.py
 """
 
 import torch
-import torchvision
+from torchvision import __version__ as tv_ver
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
@@ -21,7 +21,7 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre, NoOp
-from bindsnet.encoding import poisson
+from bindsnet.encoding import poisson, PoissonEncoder
 from bindsnet.datasets import MNIST
 from bindsnet.evaluation import all_activity, assign_labels, proportion_weighting
 
@@ -65,14 +65,14 @@ class Spiking:
     threshold = -40  # mV. 発火閾値
     refractory_period = 3  # ms. 不応期
 
-    input_firing_rate: float = 100  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
+    intensity: float = 128  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
 
     # ======================== #
 
     gpu = torch.cuda.is_available()  # Is GPU available??
     seed = 0
 
-    workers = 4 * torch.cuda.device_count() if gpu else -1
+    workers = gpu * 4 * torch.cuda.device_count()
 
     np.random.seed(seed)
     plt.figure()
@@ -91,7 +91,7 @@ class Spiking:
         print('You Called Spiking Neural Networks Library "WBN".')
         print('=> WrappedBindsNET (This Library) :version. %s' % self.__version__)
         print('=> PyTorch :version. %s' % torch.__version__)
-        print('=> TorchVision :version. %s\n' % torchvision.__version__)
+        print('=> TorchVision :version. %s\n' % tv_ver)
 
         self.network: Network = Network()
         self.layer_index = 0
@@ -121,7 +121,7 @@ class Spiking:
         else:
             print('You use Only CPU computing.')
 
-        input_layer = Input(n=input_l, traces=True)
+        input_layer = Input(n=input_l, traces=True, shape=(1, 28, 28))
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
         self.layer_names.append(self.input_layer_name)
 
@@ -235,7 +235,7 @@ class Spiking:
         print('-- Added', name, 'with the Learning rule,', rule)
 
     def add_inhibit_layer(self, n: int = None, name='', node: Nodes = LIF,
-                          exc_w: float = 22.5, inh_w: float = -17.5):
+                          exc_w: float = 22.5, inh_w: float = -100):
         """
         Add an inhibitory layer behind the last layer.
         If you added this layer, you can add layers more behind a last normal layer, not an inhibitory layer.
@@ -306,14 +306,22 @@ class Spiking:
         self.test_data_num = 10000
         self.label_num = 10
 
-        self.train_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
+        self.train_data = MNIST(PoissonEncoder(time=self.T, dt=self.dt),
+                                None,
+                                root=self.PROJECT_ROOT+'/data/mnist',
                                 train=True,
                                 download=True,
-                                transform=transforms.ToTensor())
-        self.test_data = MNIST(root=self.PROJECT_ROOT+'/data/mnist',
+                                transform=transforms.Compose(
+                                    [transforms.ToTensor(), transforms.Lambda(lambda x: x * self.intensity)]
+                                ))
+        self.test_data = MNIST(PoissonEncoder(time=self.T, dt=self.dt),
+                               None,
+                               root=self.PROJECT_ROOT+'/data/mnist',
                                train=False,
                                download=True,
-                               transform=transforms.ToTensor())
+                               transform=transforms.Compose(
+                                   [transforms.ToTensor(), transforms.Lambda(lambda x: x * self.intensity)]
+                               ))
 
         self.train_loader = DataLoader(self.train_data,
                                        batch_size=batch,
@@ -343,15 +351,15 @@ class Spiking:
         for i, data in progress:
             print('Progress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
-            for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # batch loop
-                # ポアソン分布に従ってスパイクに変換する
-                poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
-                inputs_img = {'in': poisson_img}
+            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
-                # run!
-                self.network.run(inpts=inputs_img, time=self.T)
+            # if self.gpu:
+            #     inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
-                self.network.reset_()
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
+
+            self.network.reset_()
 
             if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
                 break
@@ -361,6 +369,7 @@ class Spiking:
 
     def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
         """
+        WARNING! this method is not allowed to use
         Run the network with prediction per the interval.
         :param interval:
         :param train:
@@ -388,13 +397,24 @@ class Spiking:
         if interval is None:
             interval = self.train_data_num
 
-        progress = enumerate(tqdm(DataLoader(self.train_data, batch_size=interval, shuffle=True)))
+        # loader = DataLoader(self.train_data,
+        #                     batch_size=interval,
+        #                     shuffle=True,
+        #                     pin_memory=self.gpu,
+        #                     num_workers=self.workers)
+        progress = enumerate(self.train_loader)
+
+        start = time()
+        print('\nBegin Training:')
         for i, data in progress:
-            print('\nProgress: %d / %d' % (i+1, self.train_data_num / interval))
-            for (j, d), l in zip(enumerate(tqdm(data['image'])), data['label']):  # interval loop
+            print('Progress: %d / %d (%4f seconds)' % (i+1, self.train_data_num / interval, time() - start))
+            for (j, d), l in zip(enumerate(tqdm(data['encoded_image'])), data['label']):  # interval loop
                 # ポアソン分布に従ってスパイクに変換する
-                poisson_img = poisson(d*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
-                inputs_img = {'in': poisson_img}
+                # poisson_img = poisson(d, time=self.T, dt=self.dt).reshape((self.T, 784))
+                inputs_img = {'in': d.view(self.T, 1, 28, 28)}
+
+                # if self.gpu:
+                #     inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
                 # run!
                 self.network.run(inpts=inputs_img, time=self.T)
@@ -470,7 +490,7 @@ class Spiking:
         progress = enumerate(tqdm(loader))
         for i, data in progress:
             inputs = data['image']
-            poisson_img = poisson(inputs*self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+            poisson_img = poisson(inputs * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
             inputs_img = {'in': poisson_img}
 
             # run!
@@ -510,7 +530,7 @@ class Spiking:
         progress = enumerate(tqdm(loader))
         for i, data in progress:
             inputs = data['image']
-            poisson_img = poisson(inputs * self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+            poisson_img = poisson(inputs * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
             inputs_img = {'in': poisson_img}
 
             # run!
@@ -575,7 +595,7 @@ class Spiking:
         d = data['image']
         label = data['label']
 
-        poisson_img = poisson(d * self.input_firing_rate, time=self.T, dt=self.dt).reshape((self.T, 784))
+        poisson_img = poisson(d * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
         inputs_img = {'in': poisson_img}
 
         self.network.run(inpts=inputs_img, time=self.T)
