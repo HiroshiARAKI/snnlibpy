@@ -1,41 +1,45 @@
 from snnlib import Spiking
 
+
 if __name__ == '__main__':
-    # SNN構築　入力層ニューロンの数，シミュレーション時間などを決める
+
+    # Build SNNs and decide the number of input neurons and the simulation time.
     snn = Spiking(input_l=784, obs_time=300)
 
-    # レイヤーを追加　数とニューロンモデルを指定する
-    # STDPの学習率は(pre, post)で指定
+    # Add a layer and give the num of neurons and the neuron model.
     snn.add_layer(n=100,
                   node=snn.LIF,
-                  w=snn.W_SIMPLE_RAND,
-                  rule=snn.SIMPLE_STDP,
+                  w=snn.W_SIMPLE_RAND,  # initialize weights
                   scale=0.3,
-                  mu=0.1, sigma=0.1,
-                  nu=(1e-4, 1e-3),
+                  rule=snn.SIMPLE_STDP,  # learning rule
+                  nu=(1e-4, 1e-3),  # learning rate
                   )
 
-    # 即抑制層を追加
+    # Add an inhibitory layer
     snn.add_inhibit_layer(inh_w=-100)
 
-    # データセットの選択
+    # Load dataset
     snn.load_MNIST(batch=1)
 
-    # gpu is available??
+    # Check my network architecture
+    snn.print_model()
+
+    # Gpu is available?? If available, make it use.
     snn.to_gpu()
 
-    # 訓練前のweight mapを描画
+    # Plot weight maps before training
     snn.plot(plt_type='wmp', range=5, prefix='pre')
 
+    # Calculate test accuracy before training
     snn.test(1000)
 
-    # データを順伝播させる
+    # Make my network run
     for _ in range(10):
-        snn.run(1000)
-        snn.test(1000)
+        snn.run(1000)  # run
+        snn.test(1000)  # and predict
 
-    # 訓練後のweight mapを描画
+    # Plot weight maps after training
     snn.plot(plt_type='wmp', range=5, prefix='result')
 
-    # 学習後のスパイク列を訓練データから10個プロット
+    # Plot output spike trains after training
     snn.plot(plt_type='sp', range=10)

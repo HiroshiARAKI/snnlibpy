@@ -333,8 +333,6 @@ class Spiking:
         :return:
         """
 
-        self.print_model()
-
         if tr_size is None:
             tr_size = int(self.train_data_num / self.batch)
         else:

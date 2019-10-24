@@ -7,12 +7,14 @@
 というコンセプトのもと作成中．  
 この小さなライブラリは，全て[snnlib.py](snnlib.py)に詰められていますので，各種定数などはかなり弄りやすいかと思います．  
 もちろん，main.pyから直接クラス変数は変更できます．  
-
-
-完全に個人利用ですが，使いたい人がいればご自由にどうぞ😎  
-(結構頻繁に小さな(大したことない)アップデートをしています．) 
+完全に個人利用ですが，使いたい人がいればご自由にどうぞ   
+(結構頻繁に小さな(大したことない)アップデートをしています．)   
   
-**未完成につきバグがまだある可能性があります．**   
+I am making a tiny and user friendly library of Spiking Neural Networks with BindsNET.  
+All functions are packed to only [snnlib.py](snnlib.py), so you can use easily, maybe.  
+This library is completely private myself, but if you want to use it, feel free to use.  
+  
+**未完成につきバグがまだある可能性があります．(There are bugs maybe, because this is incompletely.)**   
 
 ## 実行保証環境 (Environment)
 以下の環境において問題なく実行可能なことを確認しています．  
