@@ -24,7 +24,7 @@
   (GPU: torch... 1.3.0+cu92, torchvision... 0.4.1+cu92)
 
 ## Example
-* Code
+* Sample code
 ```python
 from snnlib import Spiking
 
@@ -67,6 +67,14 @@ if __name__ == '__main__':
     for i in range(10):
         snn.plot_spikes(save=True, index=i)
 ```
+
+* Generated image samples
+    * A weight map of pre-training 
+      ![pre_training](sample_images/img1.png)  
+        
+    * A weight map after STDP training with 1,000 MNIST data
+      ![pre_training](sample_images/img2.png)  
+
 
 ## BindsNET references
 【docs】  

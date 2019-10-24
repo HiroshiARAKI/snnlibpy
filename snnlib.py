@@ -51,21 +51,21 @@ class Spiking:
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'
 
-    W_NORMAL_DIST: int = 0  # 正規分布による初期化
-    W_RANDOM: int = 1  # 一様分布による初期化
-    W_SIMPLE_RAND: int = 3  # [0, 1]の一様分布による初期化
+    W_NORMAL_DIST: int = 0  # initialize with Normal Distribution
+    W_RANDOM: int = 1  # initialize with Uniform Distribution [sw_min, sw_max]
+    W_SIMPLE_RAND: int = 3  # initialize Uniform Distribution[0, scale]
 
     PROJECT_ROOT: str = os.getcwd()
     IMAGE_DIR: str = PROJECT_ROOT + '/images/'
 
-    DPI: int = 150  # 標準の保存グラフdpi (画質)
+    DPI: int = 150  # the dpi value of plt.savefig()
 
-    rest_voltage = -65  # mV. 静止膜電位
-    reset_voltage = -65  # mV. リセット膜電位．通常は静止膜電位と一緒
-    threshold = -40  # mV. 発火閾値
-    refractory_period = 3  # ms. 不応期
+    rest_voltage = -65  # [mV] resting potential
+    reset_voltage = -65  # [mV] reset potential
+    threshold = -40  # [mV] firing threshold
+    refractory_period = 3  # [ms] refractory period
 
-    intensity: float = 128  # Hz. 入力の最大発火率 (1sec.あたり何本のスパイクが出て欲しいか)
+    intensity: float = 128  # [Hz] firing rate of input spikes
 
     seed = 0  # 乱数シード
 
@@ -172,8 +172,8 @@ class Spiking:
                 w = self.weight_norm(self.pre['layer'].n, layer.n,
                                      mu=mu, sigma=sigma)
             if w is self.W_RANDOM:
-                w_max = 0.5 if 'w_max' not in kwargs else kwargs['w_max']
-                w_min = -0.5 if 'w_min' not in kwargs else kwargs['w_min']
+                w_max = 0.5 if 'sw_max' not in kwargs else kwargs['sw_max']
+                w_min = -0.5 if 'sw_min' not in kwargs else kwargs['sw_min']
 
                 w = self.weight_rand(self.pre['layer'].n, layer.n,
                                      w_max=w_max, w_min=w_min)
@@ -355,11 +355,11 @@ class Spiking:
 
             self.network.reset_()
 
-            if i >= tr_size:  # もし訓練データ数が指定の数に達したら終わり
+            if i >= tr_size:  # if reach training size you specified, break for loop
                 break
 
         print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
-        print('\nHave finished running the network.')
+        print('===< Have finished running the network >===')
 
     def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
         """
@@ -551,7 +551,7 @@ class Spiking:
         # the assignments of output neurons
         assignment = torch.zeros(self.label_num, self.pre['layer'].n)
 
-        print('\n[Calculate train spikes and assign labels]')
+        print('===< Calculate train spikes and assign labels >===')
         progress = tqdm(enumerate(self.train_loader))
         for i, data in progress:
             progress.set_description_str('\rAssign labels... %d / %d ' % (i, data_num))
@@ -581,7 +581,42 @@ class Spiking:
 
         # this result is assignment of output neurons
         assignment = assignment.argmax(0)
-        print(assignment)
+
+        # Calculate accuracy
+        labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
+        count_correct = 0
+        progress = tqdm(enumerate(self.test_loader))
+        print('===< Calculate Test accuracy >===')
+        for i, data in progress:
+            progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
+            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            # output spike trains
+            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+            # sum of the number of spikes
+            sum_spikes = spikes.sum(0)
+
+            for b in range(self.batch):
+                for l in range(self.label_num):
+                    if l in assignment:
+                        indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
+                        count_assign = torch.sum(assignment == l)
+                        labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
+
+                # if actual prediction equals desired label, increment the count.
+                if labels_rate.argmax() == data['label']:
+                    count_correct += 1
+
+                # initialize zeros
+                labels_rate[:] = 0
+
+        print('Test accuracy is %4f' % (float(count_correct) / float(self.test_data_num)))
 
         # make learning rates be back
         for conn in self.network.connections:
