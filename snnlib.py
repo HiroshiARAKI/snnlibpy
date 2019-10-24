@@ -343,7 +343,7 @@ class Spiking:
         progress = tqdm(enumerate(self.train_loader))
         start = time()
         for i, data in progress:
-            progress.set_description_str('Progress: %d / %d (%.4f seconds)' % (i+1, tr_size, time() - start))
+            progress.set_description_str('\rProgress: %d / %d (%.4f seconds)' % (i+1, tr_size, time() - start))
 
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
@@ -554,9 +554,11 @@ class Spiking:
         print('\n[Calculate train spikes and assign labels]')
         progress = tqdm(enumerate(self.train_loader))
         for i, data in progress:
-            progress.set_description_str('Assign labels... %d / %d ' % (i, data_num))
+            progress.set_description_str('\rAssign labels... %d / %d ' % (i, data_num))
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
             # run!
             self.network.run(inpts=inputs_img, time=self.T)
 
@@ -698,7 +700,7 @@ class Spiking:
         # ネットワークの最終層の結合情報を取得
         weight: torch.Tensor = self.network.connections[(names[last-1], names[last])].w
         # ndarrayにして転置
-        weight = weight.numpy().T
+        weight = weight.numpy().T if not self.gpu else weight.cpu().numpy().T
         # 欲しいマップを(28,28)の形にして画像としてカラーマップとして描画
         weight = weight[index].reshape(28, 28)
 

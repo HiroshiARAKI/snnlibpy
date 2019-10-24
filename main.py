@@ -16,7 +16,7 @@ if __name__ == '__main__':
                   )
 
     # 即抑制層を追加
-    snn.add_inhibit_layer(inh_w=-30)
+    snn.add_inhibit_layer(inh_w=-100)
 
     # データセットの選択
     snn.load_MNIST(batch=1)
@@ -24,21 +24,19 @@ if __name__ == '__main__':
     # gpu is available??
     snn.to_gpu()
 
-    # # 学習前のスパイク列を訓練データから10個プロット
-    # for i in range(10):
-    #     snn.plot_spikes(save=True, index=i)
-    #
     # 訓練前のweight mapを描画
-    for i in range(3):
+    for i in range(5):
         snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
 
     snn.test(1000)
+
     # データを順伝播させる
-    snn.run(1000)
-    snn.test(1000)
+    for _ in range(10):
+        snn.run(1000)
+        snn.test(1000)
 
     # 訓練後のweight mapを描画
-    for i in range(3):
+    for i in range(5):
         snn.plot_output_weights_map(index=i, save=True, file_name='result_wmp_'+str(i)+'.png')
 
     # 学習後のスパイク列を訓練データから10個プロット
