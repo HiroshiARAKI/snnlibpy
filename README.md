@@ -1,5 +1,6 @@
 # WrappedBindsNET
 ![version](https://img.shields.io/badge/version-0.1.4-lightgray.svg?style=flat)
+![beta](https://img.shields.io/badge/beta-green.svg?style=flat)
 
 (Last update: 2019.10.24)  
   
@@ -94,8 +95,3 @@ if __name__ == '__main__':
 【Paper】  
 [BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python](https://www.frontiersin.org/articles/10.3389/fninf.2018.00089/full)
 
-## 現状
-* 訓練データとテストデータで精度を測定可能になった (このときSTDP学習はされない)
-* 既存のSTDP学習は簡単にできる
-* コメントやドキュメントが不完全
-* コードの最適化が不完全

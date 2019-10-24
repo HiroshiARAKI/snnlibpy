@@ -98,6 +98,7 @@ class Spiking:
         self.test_data_num = None
         self.label_num = 0
         self.layer_names = []
+        self.history = {'test_acc': []}
         self.gpu = torch.cuda.is_available()  # Is GPU available?
 
         self.workers = self.gpu * 4 * torch.cuda.device_count()
@@ -543,7 +544,7 @@ class Spiking:
         """
         Calculate test accuracy with the label assignment used training data.
         :param data_num:
-        :return:
+        :return accuracy:
         """
         # Stop learning
         rl = {}
@@ -619,11 +620,16 @@ class Spiking:
                 # initialize zeros
                 labels_rate[:] = 0
 
-        print('Test accuracy is %4f' % (float(count_correct) / float(self.test_data_num)))
+        acc = float(count_correct) / float(self.test_data_num)
+        self.history['test_acc'].append(acc)
+
+        print('\n*** Test accuracy is %4f ***' % acc)
 
         # make learning rates be back
         for conn in self.network.connections:
             self.network.connections[conn].update_rule.nu = rl[conn]
+
+        return acc
 
     def plot_out_voltage(self, index: int, save: bool = False,
                          file_name: str = 'out_voltage.png', dpi: int = DPI):
@@ -778,6 +784,15 @@ class Spiking:
             for i in range(kwargs['range']):
                 self.plot_spikes(save=kwargs['save'],
                                  index=i)
+        elif plt_type == 'test':
+            plt.plot(self.history['test_acc'], label='test_acc', marker='.')
+            plt.xlabel('epochs')
+            plt.ylabel('accuracy')
+            if kwargs['save']:
+                plt.savefig('{}_test_acc.png'.format(kwargs['prefix']), dpi=self.DPI)
+            else:
+                plt.show()
+
         elif plt_type == 'p_img':
             pass
         elif plt_type == 'v':

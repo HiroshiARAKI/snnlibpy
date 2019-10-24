@@ -38,6 +38,9 @@ if __name__ == '__main__':
         snn.run(1000)  # run
         snn.test(1000)  # and predict
 
+    # Plot test accuracy transition
+    snn.plot(plt_type='test', prefix='result')
+
     # Plot weight maps after training
     snn.plot(plt_type='wmp', range=5, prefix='result')
 
