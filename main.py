@@ -25,8 +25,7 @@ if __name__ == '__main__':
     snn.to_gpu()
 
     # 訓練前のweight mapを描画
-    for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='0_wmp_'+str(i)+'.png')
+    snn.plot(plt_type='wmp', range=5, prefix='pre')
 
     snn.test(1000)
 
@@ -36,9 +35,7 @@ if __name__ == '__main__':
         snn.test(1000)
 
     # 訓練後のweight mapを描画
-    for i in range(5):
-        snn.plot_output_weights_map(index=i, save=True, file_name='result_wmp_'+str(i)+'.png')
+    snn.plot(plt_type='wmp', range=5, prefix='result')
 
     # 学習後のスパイク列を訓練データから10個プロット
-    for i in range(10):
-        snn.plot_spikes(save=True, index=i)
+    snn.plot(plt_type='sp', range=10)

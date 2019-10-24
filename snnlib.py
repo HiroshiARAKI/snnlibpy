@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.17
+@update       2019.10.24
 """
 
 import torch
@@ -37,7 +37,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.3'
+    __version__ = '0.1.4'
 
     # ======= Constants ======= #
 
@@ -542,6 +542,11 @@ class Spiking:
         return all_acc, pro_acc
 
     def test(self, data_num: int):
+        """
+        Calculate test accuracy with the label assignment used training data.
+        :param data_num:
+        :return:
+        """
         # Stop learning
         rl = {}
         for conn in self.network.connections:
@@ -751,6 +756,36 @@ class Spiking:
         else:
             plt.savefig(self.IMAGE_DIR + file_name, dpi=dpi)
         plt.close()
+
+    def plot(self, plt_type: str, **kwargs):
+        """
+        A Shortcut function about plotting
+        :param plt_type:
+        :param kwargs:
+        :return:
+        """
+        if 'save' not in kwargs:
+            kwargs['save'] = True
+        if 'prefix' not in kwargs:
+            kwargs['prefix'] = ''
+        if 'range' not in kwargs:
+            kwargs['range'] = 1
+
+        if plt_type == 'wmp':
+            for i in range(kwargs['range']):
+                self.plot_output_weights_map(index=i,
+                                             save=kwargs['save'],
+                                             file_name='{}_wmp_'.format(kwargs['prefix'])+str(i+1)+'.png')
+        elif plt_type == 'sp':
+            for i in range(kwargs['range']):
+                self.plot_spikes(save=kwargs['save'],
+                                 index=i)
+        elif plt_type == 'p_img':
+            pass
+        elif plt_type == 'v':
+            pass
+        else:
+            assert 'Not Found the plt_type.'
 
     def get_train_batch(self, index) -> torch.Tensor:
         return self.train_loader[index]['data']
