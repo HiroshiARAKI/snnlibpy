@@ -1,5 +1,5 @@
 # WrappedBindsNET
-![version](https://img.shields.io/badge/version-0.1.4-lightgray.svg?style=flat)
+![version](https://img.shields.io/badge/version-0.1.5-lightgray.svg?style=flat)
 ![beta](https://img.shields.io/badge/beta-green.svg?style=flat)
 
 (Last update: 2019.10.24)  

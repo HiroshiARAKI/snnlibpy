@@ -20,7 +20,7 @@ from bindsnet.network.nodes import (Nodes, Input, LIFNodes, IFNodes, IzhikevichN
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
-from bindsnet.learning import PostPre, NoOp
+from bindsnet.learning import PostPre, NoOp, WeightDependentPostPre
 from bindsnet.encoding import poisson, PoissonEncoder
 from bindsnet.datasets import MNIST
 from bindsnet.evaluation import all_activity, assign_labels, proportion_weighting
@@ -37,7 +37,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.4'
+    __version__ = '0.1.5'
 
     # ======= Constants ======= #
 
@@ -50,6 +50,7 @@ class Spiking:
 
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'
+    WEIGHT_DEPENDENT_STDP: str = 'Weight_dependent_STDP'
 
     W_NORMAL_DIST: int = 0  # initialize with Normal Distribution
     W_RANDOM: int = 1  # initialize with Uniform Distribution [sw_min, sw_max]
@@ -138,7 +139,7 @@ class Spiking:
 
     def add_layer(self, n: int, name='', node: Nodes = LIF,
                   w=W_NORMAL_DIST, rule=SIMPLE_STDP,
-                  wmax: float = 1, wmin: float = -1,
+                  wmax: float = 1, wmin: float = -1, norm:float = 78.4,
                   **kwargs):
         """
         Add a full connection layer that consists LIF neuron.
@@ -149,6 +150,7 @@ class Spiking:
         :param rule:
         :param wmax:
         :param wmin:
+        :param norm:
         :param kwargs: nu (learning rate of STDP), mu, sigma, w_max and w_min are available
         :return:
         """
@@ -195,6 +197,8 @@ class Spiking:
 
         if rule == self.SIMPLE_STDP:
             l_rule = PostPre
+        elif rule == self.WEIGHT_DEPENDENT_STDP:
+            l_rule = WeightDependentPostPre
         elif rule == self.NO_STDP:
             l_rule = NoOp
         else:
@@ -208,6 +212,7 @@ class Spiking:
             wmin=wmin,
             update_rule=l_rule,
             nu=nu,
+            norm=norm
         )
 
         self.network.add_connection(connection,
@@ -359,186 +364,6 @@ class Spiking:
 
         print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
         print('===< Have finished running the network >===\n')
-
-    def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
-        """
-        WARNING! this method is not allowed to use
-        Run the network with prediction per the interval.
-        :param interval:
-        :param train:
-        :param test:
-        :param plot:
-        :return:
-        """
-
-        tr_accuracy = {'all': [], 'proportion': []}
-        ts_accuracy = {'all': [], 'proportion': []}
-
-        if train:
-            all_acc, prop_acc = (0, 0)
-            print('\nPre-training accuracies (training data):')
-            print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-            tr_accuracy['all'].append(all_acc)
-            tr_accuracy['proportion'].append(prop_acc)
-        if test:
-            all_acc, prop_acc = self.predict_test_accuracy()
-            print('\nPre-training accuracies (test data):')
-            print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-            ts_accuracy['all'].append(all_acc)
-            ts_accuracy['proportion'].append(prop_acc)
-
-        if interval is None:
-            interval = self.train_data_num
-
-        # loader = DataLoader(self.train_data,
-        #                     batch_size=interval,
-        #                     shuffle=True,
-        #                     pin_memory=self.gpu,
-        #                     num_workers=self.workers)
-        progress = enumerate(self.train_loader)
-
-        start = time()
-        print('\nBegin Training:')
-        for i, data in progress:
-            print('Progress: %d / %d (%4f seconds)' % (i+1, self.train_data_num / interval, time() - start))
-            for (j, d), l in zip(enumerate(tqdm(data['encoded_image'])), data['label']):  # interval loop
-                # ポアソン分布に従ってスパイクに変換する
-                # poisson_img = poisson(d, time=self.T, dt=self.dt).reshape((self.T, 784))
-                inputs_img = {'in': d.view(self.T, 1, 28, 28)}
-
-                # if self.gpu:
-                #     inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
-
-                # run!
-                self.network.run(inpts=inputs_img, time=self.T)
-
-            if train:
-                all_acc, prop_acc = self.predict_train_accuracy(size=((i+1)*interval))
-                print('\n%d epoch=>accuracies (training data):')
-                print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-                tr_accuracy['all'].append(all_acc)
-                tr_accuracy['proportion'].append(prop_acc)
-            if test:
-                all_acc, prop_acc = self.predict_test_accuracy()
-                print('\n%d epoch=>accuracies (test data):')
-                print('all: %4f, proportion: %4f' % (all_acc, prop_acc))
-                ts_accuracy['all'].append(all_acc)
-                ts_accuracy['proportion'].append(prop_acc)
-
-                self.network.reset_()
-
-        print('\nHave finished running the network.')
-        print('Training:', tr_accuracy)
-        print('Test:', ts_accuracy)
-
-        if plot:
-            self.make_image_dir()
-            plt.plot(tr_accuracy['all'], label='all(tr)', c='b', marker='.')
-            plt.plot(tr_accuracy['proportion'], label='proportion(tr)', c='b', marker='.', linestyle='dashed')
-            plt.plot(ts_accuracy['all'], label='all(ts)', c='g', marker='.')
-            plt.plot(ts_accuracy['proportion'], label='proportion(ts)', c='g', marker='.', linestyle='dashed')
-            plt.legend()
-            plt.savefig(self.IMAGE_DIR+'result.png', dpi=self.DPI)
-
-        return tr_accuracy, ts_accuracy
-
-    def predict(self, spikes, labels):
-        """
-        Compute the accuracies with spike activities and proportion weighting.
-        :param spikes:
-        :param labels:
-        :return:
-        """
-        # ラベル付
-        self.assignments, self.proportions, self.rates = assign_labels(spikes,
-                                                                       labels,
-                                                                       self.label_num,
-                                                                       self.rates)
-
-        act_pred = all_activity(spikes, self.assignments, self.label_num)
-        pro_pred = proportion_weighting(spikes, self.assignments, self.proportions, self.label_num)
-
-        act_acc = torch.sum(labels.long() == act_pred).item() / self.batch
-        pro_acc = torch.sum(labels.long() == pro_pred).item() / self.batch
-
-        return act_acc, pro_acc
-
-    def predict_train_accuracy(self, size: int = None):
-        """
-        Predict the accuracy of all training data.
-        :param size
-        :return:
-        """
-        # 一旦学習をさせなくする. 学習率を0へ.
-        rl = {}
-        for conn in self.network.connections:
-            rl[conn] = self.network.connections[conn].update_rule.nu
-            self.network.connections[conn].update_rule.nu = (0., 0.)
-
-        loader = DataLoader(self.train_data, batch_size=1, shuffle=True, pin_memory=self.gpu, num_workers=self.workers)
-        spikes = torch.zeros(self.train_data_num, self.T, self.pre['layer'].n)
-        labels = torch.zeros(self.train_data_num)
-
-        print('\n[Calculate training accuracy]')
-        progress = enumerate(tqdm(loader))
-        for i, data in progress:
-            inputs = data['image']
-            poisson_img = poisson(inputs * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
-            inputs_img = {'in': poisson_img}
-
-            # run!
-            self.network.run(inpts=inputs_img, time=self.T)
-
-            spikes[i] = self.monitors[self.pre['name']].get('s').squeeze()
-            labels[i] = data['label']
-
-            self.network.reset_()
-
-            if size is not None and i > size:
-                break
-
-        # 学習再開
-        for conn in self.network.connections:
-            self.network.connections[conn].update_rule.nu = rl[conn]
-
-        all_acc, pro_acc = self.predict(spikes, labels)
-        return all_acc, pro_acc
-
-    def predict_test_accuracy(self):
-        """
-        Predict the accuracy of all test data.
-        :return:
-        """
-        # 一旦学習をさせなくする. 学習率を0へ.
-        rl = {}
-        for conn in self.network.connections:
-            rl[conn] = self.network.connections[conn].update_rule.nu
-            self.network.connections[conn].update_rule.nu = (0., 0.)
-
-        spikes = torch.zeros(self.test_data_num, self.T, self.pre['layer'].n)
-        labels = torch.zeros(self.test_data_num)
-
-        print('\n[Calculate test accuracy]')
-        progress = tqdm(enumerate(self.test_loader))
-        for i, data in progress:
-            inputs = data['image']
-            poisson_img = poisson(inputs * self.intensity, time=self.T, dt=self.dt).reshape((self.T, 784))
-            inputs_img = {'in': poisson_img}
-
-            # run!
-            self.network.run(inpts=inputs_img, time=self.T)
-
-            spikes[i] = self.monitors[self.pre['name']].get('s').squeeze()
-            labels[i] = data['label']
-
-            self.network.reset_()
-
-        # 学習再開
-        for conn in self.network.connections:
-            self.network.connections[conn].update_rule.nu = rl[conn]
-
-        all_acc, pro_acc = self.predict(spikes, labels)
-        return all_acc, pro_acc
 
     def test(self, data_num: int):
         """
