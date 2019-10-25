@@ -12,8 +12,8 @@
 (結構頻繁に小さな(大したことない)アップデートをしています．)   
   
 I am making a tiny and user friendly library of Spiking Neural Networks with BindsNET.  
-All functions are packed to only [snnlib.py](snnlib.py), so you can use easily, maybe.  
-This library is completely private myself, but if you want to use it, feel free to use.  
+All functions are packed to only [snnlib.py](snnlib.py), so you can use easily.  
+This library is used by private myself, but if you want to use it, feel free to use.  
   
 **未完成につきバグがまだある可能性があります．(Maybe, there are bugs because this is incompletely.)**   
 

@@ -34,8 +34,9 @@ if __name__ == '__main__':
     snn.test(1000)
 
     # Make my network run
-    for _ in range(10):
+    for i in range(10):
         snn.run(1000)  # run
+        snn.plot(plt_type='wmp', range=5, prefix=str(i+1))
         snn.test(1000)  # and predict
 
     # Plot test accuracy transition
