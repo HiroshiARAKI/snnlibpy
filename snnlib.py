@@ -342,7 +342,7 @@ class Spiking:
         progress = tqdm(enumerate(self.train_loader))
         start = time()
         for i, data in progress:
-            progress.set_description_str('\rProgress: %d / %d (%.4f seconds)' % (i+1, tr_size, time() - start))
+            progress.set_description_str('\rProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
@@ -358,7 +358,7 @@ class Spiking:
                 break
 
         print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
-        print('===< Have finished running the network >===')
+        print('===< Have finished running the network >===\n')
 
     def run_with_prediction(self, interval: int = None, train: bool = True, test: bool = True, plot: bool = False):
         """
@@ -590,7 +590,7 @@ class Spiking:
         labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
         count_correct = 0
         progress = tqdm(enumerate(self.test_loader))
-        print('===< Calculate Test accuracy >===')
+        print('\n===< Calculate Test accuracy >===')
         for i, data in progress:
             progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
@@ -623,7 +623,7 @@ class Spiking:
         acc = float(count_correct) / float(self.test_data_num)
         self.history['test_acc'].append(acc)
 
-        print('\n*** Test accuracy is %4f ***' % acc)
+        print('\n*** Test accuracy is %4f ***\n' % acc)
 
         # make learning rates be back
         for conn in self.network.connections:
@@ -789,7 +789,7 @@ class Spiking:
             plt.xlabel('epochs')
             plt.ylabel('accuracy')
             if kwargs['save']:
-                plt.savefig('{}_test_acc.png'.format(kwargs['prefix']), dpi=self.DPI)
+                plt.savefig(self.IMAGE_DIR + '{}_test_acc.png'.format(kwargs['prefix']), dpi=self.DPI)
             else:
                 plt.show()
 
