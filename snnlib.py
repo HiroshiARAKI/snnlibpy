@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.24
+@update       2019.10.25
 """
 
 import torch
@@ -21,9 +21,8 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre, NoOp, WeightDependentPostPre
-from bindsnet.encoding import poisson, PoissonEncoder
+from bindsnet.encoding import PoissonEncoder
 from bindsnet.datasets import MNIST
-from bindsnet.evaluation import all_activity, assign_labels, proportion_weighting
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -139,7 +138,7 @@ class Spiking:
 
     def add_layer(self, n: int, name='', node: Nodes = LIF,
                   w=W_NORMAL_DIST, rule=SIMPLE_STDP,
-                  wmax: float = 1, wmin: float = -1, norm:float = 78.4,
+                  wmax: float = 1, wmin: float = -1, norm: float = 78.4,
                   **kwargs):
         """
         Add a full connection layer that consists LIF neuron.
