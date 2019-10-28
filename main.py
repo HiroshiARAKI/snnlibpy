@@ -19,7 +19,7 @@ if __name__ == '__main__':
     snn.add_inhibit_layer(inh_w=-100)
 
     # Load dataset
-    snn.load_MNIST(batch=1)
+    snn.load_MNIST()
 
     # Check my network architecture
     snn.print_model()
@@ -28,22 +28,22 @@ if __name__ == '__main__':
     snn.to_gpu()
 
     # Plot weight maps before training
-    snn.plot(plt_type='wmp', range=5, prefix='pre')
+    snn.plot(plt_type='wmps', prefix='0')
 
     # Calculate test accuracy before training
-    snn.test(1000)
+    # snn.test(1000)
 
     # Make my network run
     for i in range(10):
         snn.run(1000)  # run
-        snn.plot(plt_type='wmp', range=5, prefix=str(i+1))
+        snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
         snn.test(1000)  # and predict
 
     # Plot test accuracy transition
     snn.plot(plt_type='test', prefix='result')
 
     # Plot weight maps after training
-    snn.plot(plt_type='wmp', range=5, prefix='result')
+    snn.plot(plt_type='wmps', prefix='result')
 
     # Plot output spike trains after training
     snn.plot(plt_type='sp', range=10)

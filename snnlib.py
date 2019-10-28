@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.25
+@update       2019.10.28
 """
 
 import torch
@@ -36,7 +36,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.5'
+    __version__ = '0.1.6'
 
     # ======= Constants ======= #
 
@@ -71,7 +71,8 @@ class Spiking:
 
     # ======================== #
 
-    def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0):
+    def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0,
+                 input_shape=(1, 28, 28)):
         """
         Constructor: Build SNN easily. Initialize many variables in backend.
         :param input_l:
@@ -115,7 +116,8 @@ class Spiking:
         self.rates = None
         self.accuracy = {'all': [], 'proportion': []}
 
-        input_layer = Input(n=input_l, traces=True, shape=(1, 28, 28))
+        input_layer = Input(n=input_l, traces=True, shape=input_shape)
+
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
         self.layer_names.append(self.input_layer_name)
 
@@ -160,6 +162,10 @@ class Spiking:
                      restet=self.reset_voltage,
                      thresh=self.threshold,
                      refrac=self.refractory_period,
+                     tc_decay=kwargs.get('tc_decay', 100.0),
+                     theta_plus=kwargs.get('theta_plus', 0.05),
+                     tc_theta_decay=kwargs.get('tc_theta_decay', 1e7),
+                     **kwargs
                      )
 
         if name == '' or name is None:
@@ -371,10 +377,8 @@ class Spiking:
         :return accuracy:
         """
         # Stop learning
-        rl = {}
-        for conn in self.network.connections:
-            rl[conn] = self.network.connections[conn].update_rule.nu
-            self.network.connections[conn].update_rule.nu = (0., 0.)
+        for layer in self.network.layers:
+            self.network.layers[layer].train(False)
 
         # the assignments of output neurons
         assignment = torch.zeros(self.label_num, self.pre['layer'].n)
@@ -450,8 +454,8 @@ class Spiking:
         print('\n*** Test accuracy is %4f ***\n' % acc)
 
         # make learning rates be back
-        for conn in self.network.connections:
-            self.network.connections[conn].update_rule.nu = rl[conn]
+        for layer in self.network.layers:
+            self.network.layers[layer].train(True)
 
         return acc
 
@@ -551,13 +555,16 @@ class Spiking:
         plt.close()
 
     def plot_output_weights_map(self, index: int, save: bool = False,
-                                file_name: str = 'weight_map.png', dpi: int = DPI):
+                                file_name: str = 'weight_map.png', dpi: int = DPI,
+                                c_max: float = 1.0, c_min: float = -1.0):
         """
         Plot an afferent weight map of the last layer's [index]th neuron.
         :param index:
         :param save:
         :param file_name:
         :param dpi:
+        :param c_max: max of colormap
+        :param c_min: min of colormap
         :return:
         """
         self.make_image_dir()
@@ -565,20 +572,85 @@ class Spiking:
         names = self.layer_names
         last = len(names) - 1
 
-        # ネットワークの最終層の結合情報を取得
+        # Get the connection information of the last layer
         weight: torch.Tensor = self.network.connections[(names[last-1], names[last])].w
-        # ndarrayにして転置
+        # to ndarray and trans.
         weight = weight.numpy().T if not self.gpu else weight.cpu().numpy().T
-        # 欲しいマップを(28,28)の形にして画像としてカラーマップとして描画
+        # to shape as (28,28)
         weight = weight[index].reshape(28, 28)
 
-        # 必ずカラーマップの真ん中が0になるようにする
-        wmax = weight.max()
-        wmin = weight.min()
+        # Set the center of a colormap zero.
+        wmax = weight.max() if weight.max() > c_max else c_max
+        wmin = weight.min() if weight.min() < c_min else c_min
         abs_max = abs(wmax) if abs(wmax) > abs(wmin) else abs(wmin)
 
         plt.imshow(weight, cmap='coolwarm', vmax=abs_max, vmin=(-abs_max))
         plt.colorbar()
+        if not save:
+            plt.show()
+        else:
+            plt.savefig(self.IMAGE_DIR + file_name, dpi=dpi)
+        plt.close()
+
+    def plot_weight_maps(self, f_shape: tuple = (3, 3), file_name: str = 'weight_maps.png',
+                         dpi: int = DPI, c_max: float = 1.0, c_min: float = -1.0, save: bool = True):
+        """
+        Plot weight maps of output connection with the shape of [f_shape].
+        :param f_shape:
+        :param file_name:
+        :param dpi:
+        :param c_max:
+        :param c_min:
+        :param save:
+        :return:
+        """
+
+        self.make_image_dir()
+
+        names = self.layer_names
+        last = len(names) - 1
+
+        # Get the connection information of the last layer
+        weight: torch.Tensor = self.network.connections[(names[last - 1], names[last])].w
+        # to ndarray and trans.
+        weight = weight.numpy().T if not self.gpu else weight.cpu().numpy().T
+
+        # setting of figure
+        fig, axes = plt.subplots(ncols=f_shape[0], nrows=f_shape[1])
+
+        index = 0
+        im = None
+        for cols in axes:
+            for ax in cols:
+                print('Plot weight map {}/{}'.format(index, f_shape[0]*f_shape[1]),
+                      flush=True)
+
+                # to shape as (28,28)
+                tmp_weight = weight[index].reshape(28, 28)
+
+                # Set the center of a colormap zero.
+                wmax = tmp_weight.max() if tmp_weight.max() > c_max else c_max
+                wmin = tmp_weight.min() if tmp_weight.min() < c_min else c_min
+                abs_max = abs(wmax) if abs(wmax) > abs(wmin) else abs(wmin)
+
+                im = ax.imshow(tmp_weight, cmap='coolwarm', vmax=abs_max, vmin=(-abs_max))
+                ax.set_title('map({})'.format(index))
+                ax.tick_params(labelbottom=False,
+                               labelleft=False,
+                               labelright=False,
+                               labeltop=False,
+                               bottom=False,
+                               left=False,
+                               right=False,
+                               top=False
+                               )
+                # ax.colorbar()
+                index += 1
+
+        fig.subplots_adjust(right=0.8)
+        cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        fig.colorbar(im, cax=cbar_ax)
+
         if not save:
             plt.show()
         else:
@@ -598,6 +670,8 @@ class Spiking:
             kwargs['prefix'] = ''
         if 'range' not in kwargs:
             kwargs['range'] = 1
+        if 'f_shape' not in kwargs:
+            kwargs['f_shape'] = (3, 3)
 
         if plt_type == 'wmp':
             for i in range(kwargs['range']):
@@ -616,6 +690,10 @@ class Spiking:
                 plt.savefig(self.IMAGE_DIR + '{}_test_acc.png'.format(kwargs['prefix']), dpi=self.DPI)
             else:
                 plt.show()
+        elif plt_type == 'wmps':
+            self.plot_weight_maps(f_shape=kwargs['f_shape'],
+                                  file_name='{}_weight_maps.png'.format(kwargs['prefix']),
+                                  save=kwargs['save'])
 
         elif plt_type == 'p_img':
             pass
