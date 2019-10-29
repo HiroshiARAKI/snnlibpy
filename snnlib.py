@@ -378,6 +378,9 @@ class Spiking:
                 max_n_fire = sum_spikes.float() / sum_spikes.max(1)[0].float()
                 labels = data['label']
 
+                if self.gpu:
+                    max_n_fire = max_n_fire.cpu()
+
                 for j, l in enumerate(labels):
                     assignment[l] += alpha * assignment[l] + max_n_fire[j]
                     assignment[l] = assignment[l] / assignment[l].max()
