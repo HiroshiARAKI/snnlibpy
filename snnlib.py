@@ -51,23 +51,23 @@ class Spiking:
     SIMPLE_STDP: str = 'Simple_STDP'
     WEIGHT_DEPENDENT_STDP: str = 'Weight_dependent_STDP'
 
-    W_NORMAL_DIST: int = 0  # initialize with Normal Distribution
-    W_RANDOM: int = 1  # initialize with Uniform Distribution [sw_min, sw_max]
-    W_SIMPLE_RAND: int = 3  # initialize Uniform Distribution[0, scale]
+    W_NORMAL_DIST: int = 0     # initialize with Normal Distribution
+    W_RANDOM: int = 1          # initialize with Uniform Distribution [sw_min, sw_max]
+    W_SIMPLE_RAND: int = 3     # initialize Uniform Distribution[0, scale]
 
     PROJECT_ROOT: str = os.getcwd()
     IMAGE_DIR: str = PROJECT_ROOT + '/images/'
 
-    DPI: int = 150  # the dpi value of plt.savefig()
+    DPI: int = 150          # the dpi value of plt.savefig()
 
-    rest_voltage = -65  # [mV] resting potential
-    reset_voltage = -65  # [mV] reset potential
-    threshold = -40  # [mV] firing threshold
-    refractory_period = 3  # [ms] refractory period
+    rest_voltage = -65      # [mV] resting potential
+    reset_voltage = -65     # [mV] reset potential
+    threshold = -40         # [mV] firing threshold
+    refractory_period = 3   # [ms] refractory period
 
     intensity: float = 128  # [Hz] firing rate of input spikes
 
-    seed = 0  # 乱数シード
+    seed = 0                # a seed of random
 
     # ======================== #
 
@@ -829,7 +829,7 @@ class Spiking:
         elif plt_type == 'v':
             pass
         else:
-            assert 'Not Found the plt_type.'
+            print('Not Found the plt_type.')
 
     def get_train_batch(self, index) -> torch.Tensor:
         return self.train_loader[index]['data']
