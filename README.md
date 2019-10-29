@@ -1,8 +1,8 @@
 # WrappedBindsNET
-![version](https://img.shields.io/badge/version-0.1.6-lightgray.svg?style=flat)
+![version](https://img.shields.io/badge/version-0.1.7-lightgray.svg?style=flat)
 ![beta](https://img.shields.io/badge/beta-green.svg?style=flat)
 
-(Last update: 2019.10.28)  
+(Last update: 2019.10.29)  
   
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  

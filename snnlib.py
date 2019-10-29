@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.28
+@update       2019.10.29
 """
 
 import torch
@@ -36,7 +36,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.6'
+    __version__ = '0.1.7'
 
     # ======= Constants ======= #
 
@@ -338,9 +338,15 @@ class Spiking:
                                       pin_memory=self.gpu,
                                       num_workers=self.workers)
 
-    def run(self, tr_size=None):
+    def run(self, tr_size=None,
+            unsupervised: bool = True, alpha: float = 0.8,
+            debug: bool = False):
         """
         Let the Network run simply.
+        :param tr_size:
+        :param unsupervised:
+        :param alpha:
+        :param debug:
         :return:
         """
 
@@ -348,6 +354,8 @@ class Spiking:
             tr_size = int(self.train_data_num / self.batch)
         else:
             tr_size = int(tr_size / self.batch)
+
+        assignment = torch.zeros(self.label_num, self.pre['layer'].n).float()
 
         progress = tqdm(enumerate(self.train_loader))
         start = time()
@@ -362,12 +370,81 @@ class Spiking:
             # run!
             self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
 
+            if unsupervised:   # assign labels
+                # output spike trains
+                spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+                # sum of the number of spikes
+                sum_spikes = spikes.sum(0)
+                max_n_fire = sum_spikes.float() / sum_spikes.max(1)[0].float()
+                labels = data['label']
+
+                for j, l in enumerate(labels):
+                    assignment[l] += alpha * assignment[l] + max_n_fire[j]
+                    assignment[l] = assignment[l] / assignment[l].max()
+
             self.network.reset_()
 
             if i >= tr_size:  # if reach training size you specified, break for loop
                 break
 
         print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
+
+        if unsupervised:
+            print('Calculatnig accuracies...')
+            assignment = assignment.argmax(0)
+
+            if debug:
+                print('\n[Neurons assignments]')
+                print(assignment)
+
+            for layer in self.network.layers:  # stop learning
+                self.network.layers[layer].train(False)
+
+            # Calculate accuracy
+            labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
+            count_correct = 0
+            progress = tqdm(enumerate(self.test_loader))
+            print('\n===< Calculate Test accuracy >===')
+            for i, data in progress:
+                progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
+                inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+
+                if self.gpu:
+                    inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+                # run!
+                self.network.run(inpts=inputs_img, time=self.T)
+
+                # output spike trains
+                spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+                # sum of the number of spikes
+                sum_spikes = spikes.sum(0)
+                self.network.reset_()
+
+                for b in range(self.batch):
+                    for l in range(self.label_num):
+                        if l in assignment:
+                            indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
+                            count_assign = torch.sum(assignment == l)
+                            labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
+
+                    # if actual prediction equals desired label, increment the count.
+                    if labels_rate.argmax() == data['label']:
+                        count_correct += 1
+
+                    # initialize zeros
+                    labels_rate[:] = 0
+
+            acc = float(count_correct) / float(self.test_data_num)
+            self.history['test_acc'].append(acc)
+
+            print('\n*** Test accuracy is %4f ***\n' % acc)
+
+            # make learning rates be back
+            for layer in self.network.layers:
+                self.network.layers[layer].train(True)
+
         print('===< Have finished running the network >===\n')
 
     def test(self, data_num: int):
