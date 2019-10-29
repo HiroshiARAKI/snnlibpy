@@ -433,6 +433,7 @@ class Spiking:
 
             # sum of the number of spikes
             sum_spikes = spikes.sum(0)
+            self.network.reset_()
 
             for b in range(self.batch):
                 for l in range(self.label_num):
