@@ -99,7 +99,7 @@ class Spiking:
         self.test_data_num = None
         self.label_num = 0
         self.layer_names = []
-        self.history = {'test_acc': []}
+        self.history = {'test_acc': [], 'train_acc': []}
         self.gpu = torch.cuda.is_available()  # Is GPU available?
 
         self.workers = self.gpu * 4 * torch.cuda.device_count()
@@ -114,7 +114,6 @@ class Spiking:
         self.assignments = None
         self.proportions = None
         self.rates = None
-        self.accuracy = {'all': [], 'proportion': []}
 
         input_layer = Input(n=input_l, traces=True, shape=input_shape)
 
@@ -391,61 +390,117 @@ class Spiking:
         print('Progress: %d / %d (%.4f seconds)' % (tr_size, tr_size, time() - start))
 
         if unsupervised:
-            print('Calculatnig accuracies...')
+            print('Computing accuracies...')
             assignment = assignment.argmax(0)
 
             if debug:
                 print('\n[Neurons assignments]')
                 print(assignment)
 
-            for layer in self.network.layers:  # stop learning
-                self.network.layers[layer].train(False)
+            self.stop_learning()
 
-            # Calculate accuracy
-            labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
-            count_correct = 0
-            progress = tqdm(enumerate(self.test_loader))
-            print('\n===< Calculate Test accuracy >===')
-            for i, data in progress:
-                progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
-                inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            self.history['train_acc'].append(self.calc_train_accuracy(assignment, tr_size))
+            self.history['test_acc'].append(self.calc_test_accuracy(assignment))
 
-                if self.gpu:
-                    inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
-                # run!
-                self.network.run(inpts=inputs_img, time=self.T)
+            print('\n*** Train accuracy is %4f ***\n' % self.history['train_acc'][-1])
+            print('\n*** Test accuracy is %4f ***\n' % self.history['test_acc'][-1])
 
-                # output spike trains
-                spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
-
-                # sum of the number of spikes
-                sum_spikes = spikes.sum(0)
-                self.network.reset_()
-
-                for b in range(self.batch):
-                    for l in range(self.label_num):
-                        if l in assignment:
-                            indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
-                            count_assign = torch.sum(assignment == l)
-                            labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
-
-                    # if actual prediction equals desired label, increment the count.
-                    if labels_rate.argmax() == data['label']:
-                        count_correct += 1
-
-                    # initialize zeros
-                    labels_rate[:] = 0
-
-            acc = float(count_correct) / float(self.test_data_num)
-            self.history['test_acc'].append(acc)
-
-            print('\n*** Test accuracy is %4f ***\n' % acc)
-
-            # make learning rates be back
-            for layer in self.network.layers:
-                self.network.layers[layer].train(True)
+            self.start_learning()
 
         print('===< Have finished running the network >===\n')
+
+    def calc_test_accuracy(self, assignment: torch.Tensor) -> float:
+        """
+        Calculate test accuracy with the assignment.
+        :param assignment:
+        :return:
+        """
+        labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
+        count_correct = 0
+
+        progress = tqdm(enumerate(self.test_loader))
+        print('\n===< Calculate Test accuracy >===')
+        for i, data in progress:
+            progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
+            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            # output spike trains
+            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+            # sum of the number of spikes
+            sum_spikes = spikes.sum(0)
+            self.network.reset_()
+
+            for b in range(self.batch):
+                for l in range(self.label_num):
+                    if l in assignment:
+                        indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
+                        count_assign = torch.sum(assignment == l)
+                        labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
+
+                # if actual prediction equals desired label, increment the count.
+                if labels_rate.argmax() == data['label']:
+                    count_correct += 1
+
+                # initialize zeros
+                labels_rate[:] = 0
+
+        return float(count_correct) / float(self.test_data_num)
+
+    def calc_train_accuracy(self, assignment: torch.Tensor, tr_size: int = None) -> float:
+        """
+        Calculate train accuracy with the assignment.
+        :param assignment:
+        :param tr_size:
+        :return:
+        """
+        if tr_size is None:
+            tr_size = self.train_data_num
+
+        labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
+        count_correct = 0
+
+        progress = tqdm(enumerate(self.train_loader))
+        print('\n===< Calculate Test accuracy >===')
+        for i, data in progress:
+            progress.set_description_str('\rCalculate Train accuracy ... %d / %d ' % (i, tr_size))
+            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T)
+
+            # output spike trains
+            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+
+            # sum of the number of spikes
+            sum_spikes = spikes.sum(0)
+            self.network.reset_()
+
+            for b in range(self.batch):
+                for l in range(self.label_num):
+                    if l in assignment:
+                        indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
+                        count_assign = torch.sum(assignment == l)
+                        labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
+
+                # if actual prediction equals desired label, increment the count.
+                if labels_rate.argmax() == data['label']:
+                    count_correct += 1
+
+                # initialize zeros
+                labels_rate[:] = 0
+
+            if i >= tr_size:
+                break
+
+        return float(count_correct) / float(self.test_data_num)
 
     def test(self, data_num: int):
         """
@@ -575,11 +630,8 @@ class Spiking:
         """
 
         self.make_image_dir()
-        # 一旦学習をさせなくする. 学習率を0へ.
-        rl = {}
-        for conn in self.network.connections:
-            rl[conn] = self.network.connections[conn].update_rule.nu
-            self.network.connections[conn].update_rule.nu = (0., 0.)
+        self.stop_learning()
+
         data = self.train_data[index]
         label = data['label']
 
@@ -601,9 +653,7 @@ class Spiking:
             plt.savefig(self.IMAGE_DIR+'label_'+str(label)+file_name, dpi=dpi)
         plt.close()
 
-        # 学習再開
-        for conn in self.network.connections:
-            self.network.connections[conn].update_rule.nu = rl[conn]
+        self.start_learning()
 
     def plot_poisson_img(self, image: torch.Tensor, save: bool = False,
                          file_name='poisson_img.png', dpi: int = DPI):
@@ -632,9 +682,9 @@ class Spiking:
 
         plt.close()
 
-    def plot_output_weights_map(self, index: int, save: bool = False,
-                                file_name: str = 'weight_map.png', dpi: int = DPI,
-                                c_max: float = 1.0, c_min: float = -1.0):
+    def plot_output_weight_map(self, index: int, save: bool = False,
+                               file_name: str = 'weight_map.png', dpi: int = DPI,
+                               c_max: float = 1.0, c_min: float = -1.0):
         """
         Plot an afferent weight map of the last layer's [index]th neuron.
         :param index:
@@ -753,9 +803,9 @@ class Spiking:
 
         if plt_type == 'wmp':
             for i in range(kwargs['range']):
-                self.plot_output_weights_map(index=i,
-                                             save=kwargs['save'],
-                                             file_name='{}_wmp_'.format(kwargs['prefix'])+str(i+1)+'.png')
+                self.plot_output_weight_map(index=i,
+                                            save=kwargs['save'],
+                                            file_name='{}_wmp_'.format(kwargs['prefix'])+str(i+1)+'.png')
         elif plt_type == 'sp':
             for i in range(kwargs['range']):
                 self.plot_spikes(save=kwargs['save'],
@@ -808,6 +858,22 @@ class Spiking:
         else:
             print('You use Only CPU computing.')
             return False
+
+    def stop_learning(self):
+        """
+        Stop learning
+        :return:
+        """
+        for layer in self.network.layers:
+            self.network.layers[layer].train(False)
+
+    def start_learning(self):
+        """
+        (Re)start learning
+        :return:
+        """
+        for layer in self.network.layers:
+            self.network.layers[layer].train(True)
 
     @staticmethod
     def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:

@@ -8,11 +8,11 @@ if __name__ == '__main__':
 
     # Add a layer and give the num of neurons and the neuron model.
     snn.add_layer(n=100,
-                  node=snn.LIF,
-                  w=snn.W_SIMPLE_RAND,  # initialize weights
-                  scale=0.3,
+                  node=snn.LIF,          # or snn.DIEHL_COOK
+                  w=snn.W_SIMPLE_RAND,   # initialize weights
+                  scale=0.3,             # scale of random intensity
                   rule=snn.SIMPLE_STDP,  # learning rule
-                  nu=(1e-4, 1e-3),  # learning rate
+                  nu=(1e-4, 1e-3),       # learning rate
                   )
 
     # Add an inhibitory layer
@@ -30,14 +30,10 @@ if __name__ == '__main__':
     # Plot weight maps before training
     snn.plot(plt_type='wmps', prefix='0')
 
-    # Calculate test accuracy before training
-    # snn.test(1000)
-
     # Make my network run
     for i in range(10):
-        snn.run(1000)  # run
+        snn.run(1000, unsupervised=True, alpha=0.7, debug=True)  # run
         snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
-        snn.test(1000)  # and predict
 
     # Plot test accuracy transition
     snn.plot(plt_type='test', prefix='result')
