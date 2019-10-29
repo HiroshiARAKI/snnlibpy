@@ -36,7 +36,7 @@ if __name__ == '__main__':
         snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
 
     # Plot test accuracy transition
-    snn.plot(plt_type='test', prefix='result')
+    snn.plot(plt_type='history', prefix='result')
 
     # Plot weight maps after training
     snn.plot(plt_type='wmps', prefix='result')

@@ -810,12 +810,13 @@ class Spiking:
             for i in range(kwargs['range']):
                 self.plot_spikes(save=kwargs['save'],
                                  index=i)
-        elif plt_type == 'test':
-            plt.plot(self.history['test_acc'], label='test_acc', marker='.')
+        elif plt_type == 'hsitory':
+            plt.plot(self.history['train_acc'], label='train_acc', marker='.', c='b')
+            plt.plot(self.history['test_acc'], label='test_acc', marker='.', c='g')
             plt.xlabel('epochs')
             plt.ylabel('accuracy')
             if kwargs['save']:
-                plt.savefig(self.IMAGE_DIR + '{}_test_acc.png'.format(kwargs['prefix']), dpi=self.DPI)
+                plt.savefig(self.IMAGE_DIR + '{}_accuracies.png'.format(kwargs['prefix']), dpi=self.DPI)
             else:
                 plt.show()
         elif plt_type == 'wmps':
