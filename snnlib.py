@@ -6,7 +6,7 @@ snnlib.py
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.29
+@update       2019.10.31
 """
 
 import torch

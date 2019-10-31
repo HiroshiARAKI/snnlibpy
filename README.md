@@ -1,12 +1,9 @@
 # WrappedBindsNET
-![version](https://img.shields.io/badge/version-0.1.7-lightgray.svg?style=flat)
-![beta](https://img.shields.io/badge/beta-green.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2019.10.31-lightgray.svg?style=flat)
 
-(Last update: 2019.10.29)  
-  
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
-この小さなライブラリは，全て[snnlib.py](snnlib.py)に詰められていますので，各種定数などはかなり弄りやすいかと思います．  
+この小さなライブラリは，全て[snnlib.py](snnlib.py)に詰められているので，各種定数などはかなり弄りやすいかと思います．  
 もちろん，main.pyから直接クラス変数は変更できます．  
 完全に個人利用ですが，使いたい人がいればご自由にどうぞ   
 (結構頻繁に小さな(大したことない)アップデートをしています．)   
@@ -39,7 +36,7 @@ if __name__ == '__main__':
 
     # Add a layer and give the num of neurons and the neuron model.
     snn.add_layer(n=100,
-                  node=snn.LIF,          # or snn.DIEHL_COOK
+                  node=snn.DIEHL_COOK,          # or snn.DIEHL_COOK
                   w=snn.W_SIMPLE_RAND,   # initialize weights
                   scale=0.3,             # scale of random intensity
                   rule=snn.SIMPLE_STDP,  # learning rule
@@ -55,6 +52,10 @@ if __name__ == '__main__':
     # Check my network architecture
     snn.print_model()
 
+    # If you use a small network, your network performance computed by GPU may be worse than CPU.
+    # So you can change directly whether using GPU or not as below.
+    snn.gpu = False
+
     # Gpu is available?? If available, make it use.
     snn.to_gpu()
 
@@ -63,7 +64,13 @@ if __name__ == '__main__':
 
     # Make my network run
     for i in range(10):
-        snn.run(1000, unsupervised=True, alpha=0.7, debug=True)  # run
+        snn.run(tr_size=10000,       # training data size
+                unsupervised=True,   # do unsupervised learning?
+                alpha=0.8,           # assignment decay
+                debug=True,          # Do you wanna watch neuron's assignments?
+                # ts_size=5000,        # If you have little time for experiments, be able to reduce test size
+                )
+
         snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
 
     # Plot test accuracy transition
