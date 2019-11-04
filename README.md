@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     # Add a layer and give the num of neurons and the neuron model.
     snn.add_layer(n=100,
-                  node=snn.DIEHL_COOK,          # or snn.DIEHL_COOK
+                  node=snn.LIF,          # or snn.DIEHL_COOK
                   w=snn.W_SIMPLE_RAND,   # initialize weights
                   scale=0.3,             # scale of random intensity
                   rule=snn.SIMPLE_STDP,  # learning rule

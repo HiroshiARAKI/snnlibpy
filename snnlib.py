@@ -846,7 +846,6 @@ class Spiking:
             self.plot_weight_maps(f_shape=kwargs['f_shape'],
                                   file_name='{}_weight_maps.png'.format(kwargs['prefix']),
                                   save=kwargs['save'])
-
         elif plt_type == 'p_img':
             pass
         elif plt_type == 'v':
