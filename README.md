@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # Check my network architecture
     snn.print_model()
 
-    # If you use a small network, your network performance computed by GPU may be worse than CPU.
+    # If you use a small network, your network computation by GPU may be more slowly than CPU.
     # So you can change directly whether using GPU or not as below.
     snn.gpu = False
 
