@@ -72,7 +72,7 @@ class Spiking:
 
     # ======================== #
 
-    def __init__(self, input_l, obs_time: int = 500, dt: float = 1.0,
+    def __init__(self, input_l: int, obs_time: int = 500, dt: float = 1.0,
                  input_shape=(1, 28, 28)):
         """
         Constructor: Build SNN easily. Initialize many variables in backend.
@@ -84,23 +84,30 @@ class Spiking:
         print('=> PyTorch :version. %s' % torch.__version__)
         print('=> TorchVision :version. %s\n' % tv_ver)
 
-        self.network: Network = Network()
-        self.layer_index = 0
-        self.input_l = input_l
-        self.monitors = {}
-        self.original = []
+        self.network: Network = Network()  # Core of SNN
+
+        self.layer_index = 0               # index of last fc-layer
+        self.input_l = input_l             # num of input layer neurons
+        self.monitors = {}                 # monitors to manege spikes and voltages activities
+        self.T = obs_time                  # simulation time (duration)
+        self.dt = dt                       # time step
         self.input_layer_name = 'in'
-        self.dt = dt
+
         self.train_data = None
         self.test_data = None
         self.train_loader = None
         self.test_loader = None
-        self.batch = 1
         self.train_data_num = None
         self.test_data_num = None
+
+        self.batch = 1
         self.label_num = 0
         self.layer_names = []
-        self.history = {'test_acc': [], 'train_acc': []}
+        self.history = {
+            'test_acc': [], 'train_acc': [],
+            'test_acc_pro': [], 'train_acc_pro': [],
+        }
+
         self.gpu = torch.cuda.is_available()  # Is GPU available?
 
         self.workers = self.gpu * 4 * torch.cuda.device_count()
@@ -121,12 +128,11 @@ class Spiking:
         self.network.add_layer(layer=input_layer, name=self.input_layer_name)
         self.layer_names.append(self.input_layer_name)
 
+        # information of the last added layer
         self.pre = {
             'layer': input_layer,
             'name': self.input_layer_name
         }
-
-        self.T = obs_time
 
         monitor = Monitor(
             obj=input_layer,
@@ -338,13 +344,19 @@ class Spiking:
                                       pin_memory=self.gpu,
                                       num_workers=self.workers)
 
-    def run(self, tr_size=None,
-            unsupervised: bool = True, alpha: float = 0.8, interval: int = 250,
-            debug: bool = False, **kwargs):
+    def run(self,
+            tr_size=None,
+            unsupervised: bool = True,
+            proportion_acc: bool = False,
+            alpha: float = 0.8,
+            interval: int = 250,
+            debug: bool = False,
+            **kwargs):
         """
         Let the Network run simply.
         :param tr_size:
         :param unsupervised:
+        :param proportion_acc:
         :param alpha:
         :param interval:
         :param debug:
@@ -416,17 +428,32 @@ class Spiking:
 
             self.history['train_acc'].append(self.calc_train_accuracy(assignment, tr_size))
             self.history['test_acc'].append(self.calc_test_accuracy(assignment, kwargs.get('ts_size', None)))
+
             print('\n*** Train accuracy is %4f ***' % self.history['train_acc'][-1])
             print('*** Test accuracy is %4f ***\n' % self.history['test_acc'][-1])
+
+            if proportion_acc:
+                self.history['train_acc_pro'].append(
+                    self.calc_train_accuracy(assignment, proportion, tr_size)
+                )
+                self.history['test_acc_pro'].append(
+                    self.calc_test_accuracy(assignment, proportion, kwargs.get('ts_size', None))
+                )
+                print('\n*** Train accuracy with proportion is %4f ***' % self.history['train_acc_pro'][-1])
+                print('*** Test accuracy with proportion is %4f ***\n' % self.history['test_acc_pro'][-1])
 
             self.start_learning()
 
         print('===< Have finished running the network >===\n')
 
-    def calc_test_accuracy(self, assignment: torch.Tensor, ts_size: int = None) -> float:
+    def calc_test_accuracy(self,
+                           assignment: torch.Tensor,
+                           proportion: torch.Tensor = None,
+                           ts_size: int = None) -> float:
         """
         Calculate test accuracy with the assignment.
         :param assignment:
+        :param proportion:
         :param ts_size:
         :return:
         """
@@ -435,6 +462,9 @@ class Spiking:
 
         if ts_size is None:
             ts_size = self.test_data_num
+
+        if proportion is None:
+            proportion = torch.ones(self.pre['layer'].n, self.label_num)
 
         progress = tqdm(enumerate(self.test_loader))
         print('\n===< Calculate Test accuracy >===')
@@ -451,15 +481,17 @@ class Spiking:
             spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
 
             # sum of the number of spikes
-            sum_spikes = spikes.sum(0)
+            sum_spikes = spikes.sum(0)  # spikes.shape => torch.Size([T, batch, n_neurons])
             self.network.reset_()
 
             for b in range(self.batch):
                 for l in range(self.label_num):
                     if l in assignment:
-                        indices = torch.tensor([i for i, a in enumerate(assignment) if a == l])
+                        indices = torch.nonzero(assignment == l).view(-1)
                         count_assign = torch.sum(assignment == l)
-                        labels_rate[l] += torch.sum(sum_spikes[b][indices]).float() / count_assign.float()
+                        labels_rate[l] += (
+                                torch.sum(proportion[:, l] * sum_spikes[b][indices]).float() / count_assign.float()
+                        )
 
                 # if actual prediction equals desired label, increment the count.
                 if labels_rate.argmax() == data['label']:
@@ -474,15 +506,22 @@ class Spiking:
         print('\r ... done!')
         return float(count_correct) / float(ts_size)
 
-    def calc_train_accuracy(self, assignment: torch.Tensor, tr_size: int = None) -> float:
+    def calc_train_accuracy(self,
+                            assignment: torch.Tensor,
+                            proportion: torch.Tensor = None,
+                            tr_size: int = None) -> float:
         """
         Calculate train accuracy with the assignment.
         :param assignment:
+        :param proportion:
         :param tr_size:
         :return:
         """
         if tr_size is None:
             tr_size = self.train_data_num
+
+        if proportion is None:
+            proportion = torch.ones(self.pre['layer'].n, self.label_num)
 
         labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
         count_correct = 0
@@ -502,7 +541,7 @@ class Spiking:
             spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
 
             # sum of the number of spikes
-            sum_spikes = spikes.sum(0)
+            sum_spikes = spikes.sum(0)  # spikes.shape => torch.Size([T, batch, n_neurons])
             self.network.reset_()
 
             for b in range(self.batch):
@@ -510,7 +549,9 @@ class Spiking:
                     if l in assignment:
                         indices = torch.nonzero(assignment == l).view(-1)
                         count_assign = torch.sum(assignment == l).float()
-                        labels_rate[l] += torch.sum(sum_spikes[:, indices]).float() / count_assign
+                        labels_rate[l] += (
+                                torch.sum(proportion[:, l] * sum_spikes[b][indices]).float() / count_assign.float()
+                        )
 
                 # if actual prediction equals desired label, increment the count.
                 if labels_rate.argmax() == data['label'][b]:
@@ -842,6 +883,19 @@ class Spiking:
             else:
                 plt.show()
             plt.close()
+
+            if self.history['train_acc_pro']:
+                plt.plot(self.history['train_acc_pro'], label='train_acc_pro', marker='.', c='b')
+                plt.plot(self.history['test_acc_pro'], label='test_acc_pro', marker='.', c='g')
+                plt.xlabel('epochs')
+                plt.ylabel('accuracy')
+                plt.legend()
+                if kwargs['save']:
+                    plt.savefig(self.IMAGE_DIR + '{}_accuracies_pro.png'.format(kwargs['prefix']), dpi=self.DPI)
+                else:
+                    plt.show()
+                plt.close()
+
         elif plt_type == 'wmps':
             self.plot_weight_maps(f_shape=kwargs['f_shape'],
                                   file_name='{}_weight_maps.png'.format(kwargs['prefix']),

@@ -10,7 +10,7 @@ if __name__ == '__main__':
     snn.add_layer(n=100,
                   node=snn.LIF,          # or snn.DIEHL_COOK
                   w=snn.W_SIMPLE_RAND,   # initialize weights
-                  scale=0.3,             # scale of random intensity
+                  scale=0.4,             # scale of random intensity
                   rule=snn.SIMPLE_STDP,  # learning rule
                   nu=(1e-4, 1e-3),       # learning rate
                   )
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # Load dataset
     snn.load_MNIST()
 
-    # Check my network architecture
+    # Check your network architecture
     snn.print_model()
 
     # If you use a small network, your network computation by GPU may be more slowly than CPU.
