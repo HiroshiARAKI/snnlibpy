@@ -1,12 +1,11 @@
 """
 snnlib.py
 
-@description  A tiny library to use BindsNET usefully.
-@author       HiroshiARAKI
+@description  A tiny library to use BindsNET easily.
+@author       Hiroshi ARAKI
 @source       https://github.com/HiroshiARAKI/snnlibpy
 @contact      araki@hirlab.net
 @Website      https://hirlab.net
-@update       2019.10.31
 """
 
 import torch
@@ -23,7 +22,7 @@ from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre, NoOp, WeightDependentPostPre
 from bindsnet.encoding import PoissonEncoder
 from bindsnet.datasets import MNIST
-from bindsnet.evaluation import assign_labels
+from bindsnet.evaluation import assign_labels, all_activity, proportion_weighting
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -37,7 +36,7 @@ class Spiking:
     The Class to simulate Spiking Neural Networks.
     """
 
-    __version__ = '0.1.7'
+    __version__ = '0.1.8'
 
     # ======= Constants ======= #
 
@@ -105,7 +104,7 @@ class Spiking:
         self.layer_names = []
         self.history = {
             'test_acc': [], 'train_acc': [],
-            'test_acc_pro': [], 'train_acc_pro': [],
+            'test_pro': [], 'train_pro': [],
         }
 
         self.gpu = torch.cuda.is_available()  # Is GPU available?
@@ -347,8 +346,7 @@ class Spiking:
     def run(self,
             tr_size=None,
             unsupervised: bool = True,
-            proportion_acc: bool = False,
-            alpha: float = 0.8,
+            alpha: float = 1.0,
             interval: int = 250,
             debug: bool = False,
             **kwargs):
@@ -356,13 +354,13 @@ class Spiking:
         Let the Network run simply.
         :param tr_size:
         :param unsupervised:
-        :param proportion_acc:
         :param alpha:
         :param interval:
         :param debug:
         :return:
         """
-
+        if unsupervised:
+            print('<Running with Unsupervised learning of label assignment>')
         if tr_size is None:
             tr_size = int(self.train_data_num / self.batch)
         else:
@@ -370,10 +368,10 @@ class Spiking:
 
         n_out_neurons = self.pre['layer'].n
 
-        assignment = -torch.ones(n_out_neurons)
+        assignments = -torch.ones(n_out_neurons)
         spikes = torch.zeros(interval, self.T, n_out_neurons)
         labels = []
-        proportion = torch.zeros(n_out_neurons, self.label_num)
+        proportions = torch.zeros(n_out_neurons, self.label_num)
         rates = None
 
         progress = tqdm(enumerate(self.train_loader))
@@ -392,8 +390,8 @@ class Spiking:
             # assign labels
             if unsupervised and i % interval == 0 and i > 0:
                 t_labels = torch.tensor(labels)  # to tensor
-                # Get the assignment of output neurons
-                assignment, proportion, rates = assign_labels(
+                # Get the assignments of output neurons
+                assignments, proportions, rates = assign_labels(
                     spikes=spikes,
                     labels=t_labels,
                     n_labels=self.label_num,
@@ -418,53 +416,60 @@ class Spiking:
         # compute train. and test accuracies
         if unsupervised:
             print('Computing accuracies...')
-            # assignment = assignment.argmax(0)
 
             if debug:
                 print('\n[Neurons assignments]')
-                print(assignment)
+                print(assignments)
 
             self.stop_learning()
 
-            self.history['train_acc'].append(self.calc_train_accuracy(assignment, tr_size))
-            self.history['test_acc'].append(self.calc_test_accuracy(assignment, kwargs.get('ts_size', None)))
+            train_acc, train_pro = self.calc_train_accuracy(assignments=assignments,
+                                                            proportions=proportions,
+                                                            tr_size=tr_size)
+
+            test_acc, test_pro = self.calc_test_accuracy(assignments=assignments,
+                                                         proportions=proportions,
+                                                         ts_size=kwargs.get('ts_size', None))
+
+            self.history['train_acc'].append(train_acc)
+            self.history['train_pro'].append(train_pro)
+            self.history['test_acc'].append(test_acc)
+            self.history['test_pro'].append(test_pro)
 
             print('\n*** Train accuracy is %4f ***' % self.history['train_acc'][-1])
-            print('*** Test accuracy is %4f ***\n' % self.history['test_acc'][-1])
-
-            if proportion_acc:
-                self.history['train_acc_pro'].append(
-                    self.calc_train_accuracy(assignment, proportion, tr_size)
-                )
-                self.history['test_acc_pro'].append(
-                    self.calc_test_accuracy(assignment, proportion, kwargs.get('ts_size', None))
-                )
-                print('\n*** Train accuracy with proportion is %4f ***' % self.history['train_acc_pro'][-1])
-                print('*** Test accuracy with proportion is %4f ***\n' % self.history['test_acc_pro'][-1])
+            print('*** Train accuracy with proportions is %4f ***' % self.history['train_pro'][-1])
+            print('*** Test accuracy is %4f ***' % self.history['test_acc'][-1])
+            print('*** Test accuracy with proportions is %4f ***\n' % self.history['test_pro'][-1])
 
             self.start_learning()
 
         print('===< Have finished running the network >===\n')
 
     def calc_test_accuracy(self,
-                           assignment: torch.Tensor,
-                           proportion: torch.Tensor = None,
-                           ts_size: int = None) -> float:
+                           assignments: torch.Tensor,
+                           proportions: torch.Tensor = None,
+                           ts_size: int = None) -> (float, float):
         """
         Calculate test accuracy with the assignment.
-        :param assignment:
-        :param proportion:
+        :param assignments:
+        :param proportions:
         :param ts_size:
         :return:
         """
-        labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
-        count_correct = 0
 
         if ts_size is None:
             ts_size = self.test_data_num
 
-        if proportion is None:
-            proportion = torch.ones(self.pre['layer'].n, self.label_num)
+        n_neurons = self.pre['layer'].n
+
+        if proportions is None:
+            proportions = torch.ones(n_neurons, self.label_num).float()
+
+        interval = 250
+        spike_record = torch.zeros(interval, self.T, n_neurons)
+        labels = []
+
+        count_correct = {'acc': 0, 'pro': 0}
 
         progress = tqdm(enumerate(self.test_loader))
         print('\n===< Calculate Test accuracy >===')
@@ -474,57 +479,69 @@ class Spiking:
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+
+            if i % interval == 0 and i > 0:
+                # Convert the array of labels into a tensor
+                label_tensor = torch.tensor(labels)
+
+                # Get network predictions.
+                all_activity_pred = all_activity(
+                    spikes=spike_record, assignments=assignments, n_labels=self.label_num
+                )
+                proportion_pred = proportion_weighting(
+                    spikes=spike_record,
+                    assignments=assignments,
+                    proportions=proportions,
+                    n_labels=self.label_num,
+                )
+
+                count_correct['acc'] += torch.sum(label_tensor.long() == all_activity_pred).item()
+                count_correct['pro'] += torch.sum(label_tensor.long() == proportion_pred).item()
+
+                labels = []
+
+            # get labels
+            labels.append(data["label"])
+
             # run!
             self.network.run(inpts=inputs_img, time=self.T)
 
-            # output spike trains
-            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+            # get output spike trains
+            spike_record[i % interval] = self.monitors[self.pre['name']].get("s").squeeze()
 
-            # sum of the number of spikes
-            sum_spikes = spikes.sum(0)  # spikes.shape => torch.Size([T, batch, n_neurons])
             self.network.reset_()
-
-            for b in range(self.batch):
-                for l in range(self.label_num):
-                    if l in assignment:
-                        indices = torch.nonzero(assignment == l).view(-1)
-                        count_assign = torch.sum(assignment == l)
-                        labels_rate[l] += (
-                                torch.sum(proportion[:, l] * sum_spikes[b][indices]).float() / count_assign.float()
-                        )
-
-                # if actual prediction equals desired label, increment the count.
-                if labels_rate.argmax() == data['label']:
-                    count_correct += 1
-
-                # initialize zeros
-                labels_rate[:] = 0
 
             if i >= ts_size:
                 break
 
         print('\r ... done!')
-        return float(count_correct) / float(ts_size)
+        return (float(count_correct['acc']) / float(ts_size),   # accuracy
+                float(count_correct['pro']) / float(ts_size))   # accuracy with proportions
 
     def calc_train_accuracy(self,
-                            assignment: torch.Tensor,
-                            proportion: torch.Tensor = None,
-                            tr_size: int = None) -> float:
+                            assignments: torch.Tensor,
+                            proportions: torch.Tensor = None,
+                            tr_size: int = None) -> (float, float):
         """
         Calculate train accuracy with the assignment.
-        :param assignment:
-        :param proportion:
+        :param assignments:
+        :param proportions:
         :param tr_size:
         :return:
         """
         if tr_size is None:
             tr_size = self.train_data_num
 
-        if proportion is None:
-            proportion = torch.ones(self.pre['layer'].n, self.label_num)
+        n_neurons = self.pre['layer'].n
 
-        labels_rate = torch.zeros(self.label_num).float()  # each firing rate of labels
-        count_correct = 0
+        if proportions is None:
+            proportions = torch.ones(n_neurons, self.label_num).float()
+
+        interval = 250
+        spike_record = torch.zeros(interval, self.T, n_neurons)
+        labels = []
+
+        count_correct = {'acc': 0, 'pro': 0}
 
         progress = tqdm(enumerate(self.train_loader))
         print('\n===< Calculate Training accuracy >===')
@@ -534,37 +551,44 @@ class Spiking:
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+
+            if i % interval == 0 and i > 0:
+                # Convert the array of labels into a tensor
+                label_tensor = torch.tensor(labels)
+
+                # Get network predictions.
+                all_activity_pred = all_activity(
+                    spikes=spike_record, assignments=assignments, n_labels=self.label_num
+                )
+                proportion_pred = proportion_weighting(
+                    spikes=spike_record,
+                    assignments=assignments,
+                    proportions=proportions,
+                    n_labels=self.label_num,
+                )
+
+                count_correct['acc'] += torch.sum(label_tensor.long() == all_activity_pred).item()
+                count_correct['pro'] += torch.sum(label_tensor.long() == proportion_pred).item()
+
+                labels = []
+
+            # get labels
+            labels.append(data["label"])
+
             # run!
             self.network.run(inpts=inputs_img, time=self.T)
 
-            # output spike trains
-            spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
+            # get output spike trains
+            spike_record[i % interval] = self.monitors[self.pre['name']].get('s').squeeze()
 
-            # sum of the number of spikes
-            sum_spikes = spikes.sum(0)  # spikes.shape => torch.Size([T, batch, n_neurons])
             self.network.reset_()
-
-            for b in range(self.batch):
-                for l in range(self.label_num):
-                    if l in assignment:
-                        indices = torch.nonzero(assignment == l).view(-1)
-                        count_assign = torch.sum(assignment == l).float()
-                        labels_rate[l] += (
-                                torch.sum(proportion[:, l] * sum_spikes[b][indices]).float() / count_assign.float()
-                        )
-
-                # if actual prediction equals desired label, increment the count.
-                if labels_rate.argmax() == data['label'][b]:
-                    count_correct += 1
-
-                # initialize zeros
-                labels_rate[:] = 0
 
             if i >= tr_size:
                 break
 
         print('\r ... done!')
-        return float(count_correct) / float(tr_size)
+        return (float(count_correct['acc']) / float(tr_size),   # accuracy
+                float(count_correct['pro']) / float(tr_size))   # accuracy with proportions
 
     def test(self, data_num: int):
         """
@@ -873,9 +897,14 @@ class Spiking:
                 self.plot_spikes(save=kwargs['save'],
                                  index=i)
         elif plt_type == 'history':
-            plt.plot(self.history['train_acc'], label='train_acc', marker='.', c='b')
-            plt.plot(self.history['test_acc'], label='test_acc', marker='.', c='g')
-            plt.xlabel('epochs')
+            epochs = len(self.history['train_acc'])
+            epochs = np.arange(1, epochs+1)
+            print(self.history)
+            plt.plot(epochs, self.history['train_acc'], label='train_acc', marker='.', c='b')
+            plt.plot(epochs, self.history['train_pro'], label='train_pro', marker='.', c='b', linestyle='dashed')
+            plt.plot(epochs, self.history['test_acc'], label='test_acc', marker='.', c='g')
+            plt.plot(epochs, self.history['test_pro'], label='test_pro', marker='.', c='g', linestyle='dashed')
+            plt.xlabel('epoch')
             plt.ylabel('accuracy')
             plt.legend()
             if kwargs['save']:
@@ -883,18 +912,6 @@ class Spiking:
             else:
                 plt.show()
             plt.close()
-
-            if self.history['train_acc_pro']:
-                plt.plot(self.history['train_acc_pro'], label='train_acc_pro', marker='.', c='b')
-                plt.plot(self.history['test_acc_pro'], label='test_acc_pro', marker='.', c='g')
-                plt.xlabel('epochs')
-                plt.ylabel('accuracy')
-                plt.legend()
-                if kwargs['save']:
-                    plt.savefig(self.IMAGE_DIR + '{}_accuracies_pro.png'.format(kwargs['prefix']), dpi=self.DPI)
-                else:
-                    plt.show()
-                plt.close()
 
         elif plt_type == 'wmps':
             self.plot_weight_maps(f_shape=kwargs['f_shape'],

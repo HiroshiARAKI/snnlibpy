@@ -8,15 +8,16 @@ if __name__ == '__main__':
 
     # Add a layer and give the num of neurons and the neuron model.
     snn.add_layer(n=100,
-                  node=snn.LIF,          # or snn.DIEHL_COOK
+                  node=snn.DIEHL_COOK,          # or snn.DIEHL_COOK
                   w=snn.W_SIMPLE_RAND,   # initialize weights
                   scale=0.4,             # scale of random intensity
                   rule=snn.SIMPLE_STDP,  # learning rule
-                  nu=(1e-4, 1e-3),       # learning rate
+                  nu=(1e-4, 1e-2),       # learning rate
+                  # norm=150,              # L1 weight normalization term
                   )
 
     # Add an inhibitory layer
-    snn.add_inhibit_layer(inh_w=-100)
+    snn.add_inhibit_layer(inh_w=-128)
 
     # Load dataset
     snn.load_MNIST()
@@ -35,11 +36,12 @@ if __name__ == '__main__':
     snn.plot(plt_type='wmps', prefix='0')
 
     # Make my network run
-    for i in range(10):
+    for i in range(5):
         snn.run(tr_size=10000,       # training data size
                 unsupervised=True,   # do unsupervised learning?
-                alpha=0.8,           # assignment decay
+                # alpha=0.8,           # assignment decay
                 debug=True,          # Do you wanna watch neuron's assignments?
+                interval=250,        # interval of assignment
                 # ts_size=5000,        # If you have little time for experiments, be able to reduce test size
                 )
 
