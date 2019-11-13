@@ -1,15 +1,15 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2019.11.08-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2019.11.13-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
-この小さなライブラリは，全て[snnlib.py](snnlib.py)に詰められているので，各種定数などはかなり弄りやすいかと思います．  
+この小さなライブラリは，全て[snnlib.py](wbn/snnlib.py)に詰められているので，各種定数などはかなり弄りやすいかと思います．  
 もちろん，main.pyから直接クラス変数は変更できます．  
 完全に個人利用ですが，使いたい人がいればご自由にどうぞ   
 (結構頻繁に小さな(大したことない)アップデートをしています．)   
   
 I am making a tiny and user friendly library of Spiking Neural Networks with BindsNET.  
-All functions are packed to only [snnlib.py](snnlib.py), so you can use easily.  
+All functions are packed to only [snnlib.py](wbn/snnlib.py), so you can use easily.  
 This library is used by private myself, but if you want to use it, feel free to use.  
   
 **未完成につきバグがまだある可能性があります．(Maybe, there are bugs because this is incompletely.)**   
@@ -26,7 +26,7 @@ This library is used by private myself, but if you want to use it, feel free to 
 ## Example
 * Sample code
 ```python
-from snnlib import Spiking
+from wbn.snnlib import Spiking
 
 
 if __name__ == '__main__':
@@ -84,12 +84,22 @@ if __name__ == '__main__':
 
 ```
 
+or very simply,
+```python
+from wbn import DiehlCook_unsupervised_model
+DiehlCook_unsupervised_model()
+```
+is ok (actually this function is my backup data, so it's good for you to use this when you check whether it works properly).
+
 * Generated image samples
     * A weight map of pre-training 
       ![pre_training](sample_images/pre_weight_maps.png)  
         
-    * A weight map after STDP training with 1,000 MNIST data
-      ![pre_training](sample_images/result_weight_maps.png)  
+    * A weight map after STDP training with 1,0000 MNIST data
+      ![pre_training](sample_images/res_weight_maps.png)  
+      
+    * A Historty example of learning is below (3 epochs).
+        ![history](sample_images/history.png)  
 
 
 ## BindsNET references

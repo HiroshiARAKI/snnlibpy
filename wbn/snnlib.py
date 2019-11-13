@@ -30,13 +30,13 @@ import numpy as np
 import os
 from time import time
 
+__version__ = '0.2.0'
+
 
 class Spiking:
     """
     The Class to simulate Spiking Neural Networks.
     """
-
-    __version__ = '0.1.8'
 
     # ======= Constants ======= #
 
@@ -61,9 +61,9 @@ class Spiking:
     DPI: int = 150          # the dpi value of plt.savefig()
 
     rest_voltage = -65      # [mV] resting potential
-    reset_voltage = -65     # [mV] reset potential
-    threshold = -40         # [mV] firing threshold
-    refractory_period = 3   # [ms] refractory period
+    reset_voltage = -60     # [mV] reset potential
+    threshold = -52         # [mV] firing threshold
+    refractory_period = 5   # [ms] refractory period
 
     intensity: float = 128  # [Hz] firing rate of input spikes
 
@@ -79,7 +79,7 @@ class Spiking:
         :param obs_time:
         """
         print('You Called Spiking Neural Networks Library "WBN"!!')
-        print('=> WrappedBindsNET (This Library) :version. %s' % self.__version__)
+        print('=> WrappedBindsNET (This Library) :version. %s' % __version__)
         print('=> PyTorch :version. %s' % torch.__version__)
         print('=> TorchVision :version. %s\n' % tv_ver)
 
@@ -381,12 +381,6 @@ class Spiking:
 
             inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
 
-            if self.gpu:
-                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
-
-            # run!
-            self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
-
             # assign labels
             if unsupervised and i % interval == 0 and i > 0:
                 t_labels = torch.tensor(labels)  # to tensor
@@ -399,6 +393,12 @@ class Spiking:
                     alpha=alpha
                 )
                 labels = []
+
+            if self.gpu:
+                inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
+
+            # run!
+            self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
 
             if unsupervised:
                 # labels used by assigning
