@@ -1,5 +1,5 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2019.11.13-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2019.11.14-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -86,7 +86,8 @@ if __name__ == '__main__':
 
 or very simply,
 ```python
-from wbn import DiehlCook_unsupervised_model
+from wbn import DiehlCook_unsupervised_model  # packed sample simulation code
+
 DiehlCook_unsupervised_model()
 ```
 is ok (actually this function is my backup data, so it's good for you to use this when you check whether it works properly).

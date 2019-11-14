@@ -28,9 +28,10 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import sys
 from time import time
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 
 class Spiking:
@@ -792,7 +793,8 @@ class Spiking:
         weight: torch.Tensor = self.network.connections[(names[last-1], names[last])].w
         # to ndarray and trans.
         weight = weight.numpy().T if not self.gpu else weight.cpu().numpy().T
-        # to shape as (28,28)
+
+        # to shape as (n, n)
         weight = weight[index].reshape(28, 28)
 
         # Set the center of a colormap zero.
@@ -808,11 +810,18 @@ class Spiking:
             plt.savefig(self.IMAGE_DIR + file_name, dpi=dpi)
         plt.close()
 
-    def plot_weight_maps(self, f_shape: tuple = (3, 3), file_name: str = 'weight_maps.png',
-                         dpi: int = DPI, c_max: float = 1.0, c_min: float = -1.0, save: bool = True):
+    def plot_weight_maps(self,
+                         f_shape: tuple = (3, 3),
+                         layer: int = None,
+                         file_name: str = 'weight_maps.png',
+                         dpi: int = DPI,
+                         c_max: float = 1.0,
+                         c_min: float = -1.0,
+                         save: bool = True):
         """
         Plot weight maps of output connection with the shape of [f_shape].
         :param f_shape:
+        :param layer: post layer index counted from 0 (default is last layer)
         :param file_name:
         :param dpi:
         :param c_max:
@@ -824,10 +833,13 @@ class Spiking:
         self.make_image_dir()
 
         names = self.layer_names
-        last = len(names) - 1
+        if layer is None:
+            post = len(names) - 1
+        else:
+            post = layer
 
-        # Get the connection information of the last layer
-        weight: torch.Tensor = self.network.connections[(names[last - 1], names[last])].w
+        # Get the connection information of the post layer
+        weight: torch.Tensor = self.network.connections[(names[post - 1], names[post])].w
         # to ndarray and trans.
         weight = weight.numpy().T if not self.gpu else weight.cpu().numpy().T
 
@@ -838,10 +850,13 @@ class Spiking:
         im = None
         for cols in axes:
             for ax in cols:
-                print('Plot weight map {}/{}'.format(index+1, f_shape[0]*f_shape[1]))
+                sys.stdout.write('\rPlot weight map {}/{}'.format(index+1, f_shape[0]*f_shape[1]))
+                sys.stdout.flush()
 
-                # to shape as (28,28)
-                tmp_weight = weight[index].reshape(28, 28)
+                # to shape as (n, n)
+                n_neurons = self.network.layers[names[post - 1]].n
+                n = int(np.sqrt(n_neurons))
+                tmp_weight = weight[index].reshape(n, n)
 
                 # Set the center of a colormap zero.
                 wmax = tmp_weight.max() if tmp_weight.max() > c_max else c_max
@@ -860,7 +875,7 @@ class Spiking:
                                top=False
                                )
                 index += 1
-
+        print('\nPlotting... Done!')
         fig.subplots_adjust(right=0.8)
         cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
         fig.colorbar(im, cax=cbar_ax)
@@ -884,8 +899,6 @@ class Spiking:
             kwargs['prefix'] = ''
         if 'range' not in kwargs:
             kwargs['range'] = 1
-        if 'f_shape' not in kwargs:
-            kwargs['f_shape'] = (3, 3)
 
         if plt_type == 'wmp':
             for i in range(kwargs['range']):
@@ -914,7 +927,8 @@ class Spiking:
             plt.close()
 
         elif plt_type == 'wmps':
-            self.plot_weight_maps(f_shape=kwargs['f_shape'],
+            self.plot_weight_maps(f_shape=kwargs.get('f_shape', (3, 3)),
+                                  layer=kwargs.get('layer', None),
                                   file_name='{}_weight_maps.png'.format(kwargs['prefix']),
                                   save=kwargs['save'])
         elif plt_type == 'p_img':
