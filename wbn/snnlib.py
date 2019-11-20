@@ -8,6 +8,8 @@ snnlib.py
 @Website      https://hirlab.net
 """
 
+from .additional_encoders import FixedFrequencyEncoder
+
 import torch
 from torchvision import __version__ as tv_ver
 import torchvision.transforms as transforms
@@ -20,7 +22,7 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.analysis.plotting import plot_spikes
 from bindsnet.learning import PostPre, NoOp, WeightDependentPostPre
-from bindsnet.encoding import PoissonEncoder
+from bindsnet.encoding import PoissonEncoder, SingleEncoder, RepeatEncoder, RankOrderEncoder, BernoulliEncoder
 from bindsnet.datasets import MNIST
 from bindsnet.evaluation import assign_labels, all_activity, proportion_weighting
 
@@ -31,7 +33,7 @@ import os
 import sys
 from time import time
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 
 class Spiking:
@@ -47,6 +49,13 @@ class Spiking:
     SRM = SRM0Nodes
     DIEHL_COOK = DiehlAndCookNodes
     ADAPTIVE_LIF = AdaptiveLIFNodes
+
+    POISSON = PoissonEncoder
+    SINGLE = SingleEncoder
+    REPEAT = RepeatEncoder
+    RANK_ORDER = RankOrderEncoder
+    BERNOULI = BernoulliEncoder
+    FIXED_FREQUENCY = FixedFrequencyEncoder
 
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'
@@ -66,7 +75,9 @@ class Spiking:
     threshold = -52         # [mV] firing threshold
     refractory_period = 5   # [ms] refractory period
 
-    intensity: float = 128  # [Hz] firing rate of input spikes
+    # if you encode images with poisson process, then [Hz] firing rate of input spikes
+    # this intensity should be changed by the Encoder you use
+    intensity: float = 128
 
     seed = 0                # a seed of random
 
@@ -305,32 +316,33 @@ class Spiking:
 
         print('-- Added', name, 'as an inhibitory layer')
 
-    def load_MNIST(self, batch: int = 1):
+    def load_MNIST(self, batch: int = 1, encoder=PoissonEncoder, intensity=intensity):
         """
         Load MNIST dataset from pyTorch.
         :param batch:
+        :param encoder:
+        :param intensity:
         :return:
         """
         self.batch = batch
         self.train_data_num = 60000
         self.test_data_num = 10000
         self.label_num = 10
-
-        self.train_data = MNIST(PoissonEncoder(time=self.T, dt=self.dt),
+        self.train_data = MNIST(encoder(time=self.T, dt=self.dt),
                                 None,
                                 root=self.PROJECT_ROOT+'/data/mnist',
                                 train=True,
                                 download=True,
                                 transform=transforms.Compose(
-                                    [transforms.ToTensor(), transforms.Lambda(lambda x: x * self.intensity)]
+                                    [transforms.ToTensor(), transforms.Lambda(lambda x: x * intensity)]
                                 ))
-        self.test_data = MNIST(PoissonEncoder(time=self.T, dt=self.dt),
+        self.test_data = MNIST(encoder(time=self.T, dt=self.dt),
                                None,
                                root=self.PROJECT_ROOT+'/data/mnist',
                                train=False,
                                download=True,
                                transform=transforms.Compose(
-                                   [transforms.ToTensor(), transforms.Lambda(lambda x: x * self.intensity)]
+                                   [transforms.ToTensor(), transforms.Lambda(lambda x: x * intensity)]
                                ))
 
         self.train_loader = DataLoader(self.train_data,

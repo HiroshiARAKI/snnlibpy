@@ -1,9 +1,9 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2019.11.14-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2019.11.20-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
-この小さなライブラリは，全て[snnlib.py](wbn/snnlib.py)に詰められているので，各種定数などはかなり弄りやすいかと思います．  
+この小さなライブラリは，大体[snnlib.py](wbn/snnlib.py)に詰められているので，各種定数などはかなり弄りやすいかと思います．  
 もちろん，main.pyから直接クラス変数は変更できます．  
 完全に個人利用ですが，使いたい人がいればご自由にどうぞ   
 (結構頻繁に小さな(大したことない)アップデートをしています．)   
@@ -100,7 +100,7 @@ is ok (actually this function is my backup data, so it's good for you to use thi
       ![pre_training](sample_images/res_weight_maps.png)  
       
     * A Historty example of learning is below (3 epochs).
-        ![history](sample_images/history.png)  
+        ![history](sample_images/history_sample.png)  
 
 
 ## BindsNET references
@@ -112,4 +112,18 @@ is ok (actually this function is my backup data, so it's good for you to use thi
 
 【Paper】  
 [BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python](https://www.frontiersin.org/articles/10.3389/fninf.2018.00089/full)
-
+  
+  
+## update list
+* 2019.11.20
+    Fixed-frequency encoder is added. 
+    This encoder doesn't use any probability.
+    The spikes is determined by input values normalized as frequencies in advance. 
+    Sample image is here ([sample](sample_images/fixed-frequency_encode.png)).  
+    You can call as below.  
+    ```python
+  from wbn import Spiking
+  snn = Spiking(input_l=784, obs_time=300)
+  snn.load_MNIST(encoder=snn.FIXED_FREQUENCY, 
+                 intensity=128)  # used as maximum frequency
+    ``` 

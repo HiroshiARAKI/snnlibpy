@@ -1,4 +1,4 @@
-from ..snnlib import Spiking
+from ..snnlib import Spiking, PoissonEncoder
 from typing import List
 
 def DiehlCook_unsupervised_model(
@@ -10,6 +10,8 @@ def DiehlCook_unsupervised_model(
         inh_w=-128,
         tr_size=60000,
         ts_size=10000,
+        encoder=PoissonEncoder,
+        intensity=128,
         gpu=False,
         epochs=5,
         plt_wmp=True,
@@ -28,6 +30,8 @@ def DiehlCook_unsupervised_model(
     :param inh_w:
     :param tr_size:
     :param ts_size:
+    :param encoder:
+    :param intensity:
     :param gpu:
     :param epochs:
     :param plt_wmp:
@@ -53,7 +57,7 @@ def DiehlCook_unsupervised_model(
     snn.add_inhibit_layer(inh_w=inh_w)
 
     # Load dataset
-    snn.load_MNIST()
+    snn.load_MNIST(encoder=encoder, intensity=intensity)
 
     # Check your network architecture
     snn.print_model()
