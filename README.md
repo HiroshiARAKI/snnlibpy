@@ -99,7 +99,7 @@ is ok (actually this function is my backup data, so it's good for you to use thi
     * A weight map after STDP training with 1,0000 MNIST data
       ![pre_training](sample_images/res_weight_maps.png)  
       
-    * A Historty example of learning is below (3 epochs).
+    * A Historty example of learning is below (10 epochs).
         ![history](sample_images/history_sample.png)  
 
 
@@ -115,7 +115,7 @@ is ok (actually this function is my backup data, so it's good for you to use thi
   
   
 ## update list
-* 2019.11.20
+* 2019.11.20  
     Fixed-frequency encoder is added. 
     This encoder doesn't use any probability.
     The spikes is determined by input values normalized as frequencies in advance. 
