@@ -1,5 +1,5 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2019.11.20-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2019.11.22-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -115,7 +115,7 @@ is ok (actually this function is my backup data, so it's good for you to use thi
   
   
 ## update list
-* 2019.11.22
+* 2019.11.22  
     LIF Encoder is added.
     This encoder doesn't use any probability.
     The spike is determined by LIF model using input currents that is normalized each input images.
