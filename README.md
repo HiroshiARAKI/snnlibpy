@@ -119,12 +119,12 @@ is ok (actually this function is my backup data, so it's good for you to use thi
     LIF Encoder is added.
     This encoder doesn't use any probability.
     The spike is determined by LIF model using input currents that is normalized each input images.
-    Sample image is here(([sample](sample_images/encode/lif_encode.png)))
+    Sample image is here([sample](sample_images/encode/lif_encode.png))
      ```python
   from wbn import Spiking
   snn = Spiking(input_l=784, obs_time=300)
   snn.load_MNIST(encoder=snn.LIF_ENCODER, 
-                 intensity=5)  # used as maximum frequency
+                 intensity=5)  # used as maximum current
     ``` 
 
 * 2019.11.20  
