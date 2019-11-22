@@ -15,5 +15,6 @@ from .examples.simple_mln import (
 )
 
 from .additional_encoders import (
-    FixedFrequencyEncoder
+    FixedFrequencyEncoder,
+    LIFEncoder,
 )

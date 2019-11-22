@@ -8,7 +8,7 @@ snnlib.py
 @Website      https://hirlab.net
 """
 
-from .additional_encoders import FixedFrequencyEncoder
+from .additional_encoders import FixedFrequencyEncoder, LIFEncoder
 
 import torch
 from torchvision import __version__ as tv_ver
@@ -56,6 +56,7 @@ class Spiking:
     RANK_ORDER = RankOrderEncoder
     BERNOULI = BernoulliEncoder
     FIXED_FREQUENCY = FixedFrequencyEncoder
+    LIF_ENCODER = LIFEncoder
 
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'
