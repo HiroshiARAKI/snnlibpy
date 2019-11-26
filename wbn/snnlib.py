@@ -8,7 +8,7 @@ snnlib.py
 @Website      https://hirlab.net
 """
 
-from .additional_encoders import FixedFrequencyEncoder, LIFEncoder
+from .additional_encoders import FixedFrequencyEncoder, LIFEncoder, LIFEncoder2
 
 import torch
 from torchvision import __version__ as tv_ver
@@ -33,7 +33,7 @@ import os
 import sys
 from time import time
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 
 class Spiking:
@@ -57,6 +57,7 @@ class Spiking:
     BERNOULI = BernoulliEncoder
     FIXED_FREQUENCY = FixedFrequencyEncoder
     LIF_ENCODER = LIFEncoder
+    LIF_ENCODER_2 = LIFEncoder2
 
     NO_STDP: str = 'No_STDP'
     SIMPLE_STDP: str = 'Simple_STDP'

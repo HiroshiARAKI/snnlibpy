@@ -75,6 +75,50 @@ def lif(datum: torch.Tensor, time: int, dt: float = 1.0, rest=-65, th=-40, ref=3
     return torch.tensor(spikes)  # to tensor
 
 
+def lif_v2(datum: torch.Tensor, time: int, dt: float = 1.0, rest=-65, th=-40, ref=3, tc_decay=10):
+    """
+    This is also LIF equation.
+    Membrane potential formula is below.
+    dv/dt = (-v + v_rest + I)/time_const
+    :param datum:
+    :param time:
+    :param dt:
+    :param rest:
+    :param th:
+    :param ref:
+    :param tc_decay:
+    :return:
+    """
+    time = int(time / dt)
+    shape = list(datum.shape)
+    current = np.copy(datum.squeeze())
+
+    tlast = np.full_like(current, -ref)   # last firing time
+    spikes = np.zeros_like((time, shape[1], shape[2]))
+    v = np.full_like(current, rest)  # membrane potentials
+    # vpeak = 20  # peak of membrane potential which is not needed in case of computing only spikes
+
+    for t in range(time):
+        # computes amount of voltage increase
+        dv = ((dt * t) > (tlast + ref)) * (-v + rest + current) / tc_decay
+
+        # updates voltage
+        v = v + dt * dv
+
+        # if fires, updates last firing time
+        tlast = tlast + (dt * t - tlast) * (v >= th)
+
+        # v = v + (vpeak - v) * (v >= th)
+
+        # also set 1 to spikes
+        spikes[t][v >= th] = 1
+
+        # and make voltage decrease to the resting voltage
+        v = v + (rest - v) * (v >= th)
+
+    return torch.tensor(spikes)  # to tensor
+
+
 class FixedFrequencyEncoder(Encoder):
     def __init__(self, time: int, dt: float = 1.0, **kwargs):
         """
@@ -100,3 +144,17 @@ class LIFEncoder(Encoder):
         """
         super().__init__(time, dt=dt, rest=rest, th=th, ref=ref, tc_decay=tc_decay, **kwargs)
         self.enc = lif
+
+
+class LIFEncoder2(Encoder):
+    def __init__(self, time: int, dt: float = 1.0, rest=-65, th=-40, ref=3, tc_decay=10, **kwargs):
+        """
+        This is also LIF encoder, but the formula of computing membrane potential is a bit different.
+        Maybe, this model is more plausible. 'intensity' should be set to about around 100.
+        WARNING: This encoder can be used when batch size is one (non-batch).
+        :param time:
+        :param dt:
+        :param kwargs:
+        """
+        super().__init__(time, dt=dt, rest=rest, th=th, ref=ref, tc_decay=tc_decay, **kwargs)
+        self.enc = lif_v2

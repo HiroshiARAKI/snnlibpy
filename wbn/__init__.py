@@ -5,7 +5,6 @@ from .snnlib import (
     RepeatEncoder,
     RankOrderEncoder,
     BernoulliEncoder,
-    FixedFrequencyEncoder,
     __version__
 )
 
@@ -17,4 +16,5 @@ from .examples.simple_mln import (
 from .additional_encoders import (
     FixedFrequencyEncoder,
     LIFEncoder,
+    LIFEncoder2,
 )
