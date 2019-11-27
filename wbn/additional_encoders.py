@@ -94,7 +94,7 @@ def lif_v2(datum: torch.Tensor, time: int, dt: float = 1.0, rest=-65, th=-40, re
     current = np.copy(datum.squeeze())
 
     tlast = np.full_like(current, -ref)   # last firing time
-    spikes = np.zeros_like((time, shape[1], shape[2]))
+    spikes = np.zeros((time, shape[1], shape[2]))
     v = np.full_like(current, rest)  # membrane potentials
     # vpeak = 20  # peak of membrane potential which is not needed in case of computing only spikes
 
