@@ -18,6 +18,7 @@ def DiehlCook_unsupervised_model(
         plt_history=True,
         plt_result_spikes=True,
         debug=True,
+        **kwargs
 ):
     """
     Sample code: Diehl and Cook model using unsupervised STDP label assignment.
@@ -51,13 +52,15 @@ def DiehlCook_unsupervised_model(
                   rule=snn.SIMPLE_STDP,  # learning rule
                   nu=learning_rate,  # learning rate
                   norm=weight_norm,              # L1 weight normalization term
+                  wmax=kwargs.get('wmax', 1.0),
+                  wmin=kwargs.get('wmin', -1.0),
                   )
 
     # Add an inhibitory layer
     snn.add_inhibit_layer(inh_w=inh_w)
 
     # Load dataset
-    snn.load_MNIST(encoder=encoder, intensity=intensity)
+    snn.load_MNIST(encoder=encoder, intensity=intensity, min_lim=kwargs.get('min_lim', 0))
 
     # Check your network architecture
     snn.print_model()
@@ -70,7 +73,7 @@ def DiehlCook_unsupervised_model(
 
     # Plot weight maps before training
     if plt_wmp:
-        snn.plot(plt_type='wmps', prefix='0')
+        snn.plot(plt_type='wmps', prefix='0', f_shape=kwargs.get('wmp_shape', (3, 3)))
 
     # Make my network run
     for i in range(epochs):
@@ -82,7 +85,7 @@ def DiehlCook_unsupervised_model(
                 ts_size=ts_size,        # If you have little time for experiments, be able to reduce test size
                 )
         if plt_wmp:
-            snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
+            snn.plot(plt_type='wmps', prefix='{}'.format(i+1), f_shape=kwargs.get('wmp_shape', (3, 3)))  # plot maps
 
     # Plot test accuracy transition
     if plt_history:
@@ -90,7 +93,7 @@ def DiehlCook_unsupervised_model(
 
     # Plot weight maps after training
     if plt_wmp:
-        snn.plot(plt_type='wmps', prefix='result')
+        snn.plot(plt_type='wmps', prefix='result', f_shape=kwargs.get('wmp_shape', (3, 3)))
 
     # Plot output spike trains after training
     if plt_result_spikes:

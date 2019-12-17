@@ -33,7 +33,7 @@ import os
 import sys
 from time import time
 
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 
 
 class Spiking:
@@ -215,7 +215,7 @@ class Spiking:
         self.layer_names.append(name)
 
         if 'nu' not in kwargs:
-            nu = (1e-3, 1e-3)
+            nu = (1e-4, 1e-2)
         else:
             nu = kwargs['nu']
 
@@ -318,7 +318,150 @@ class Spiking:
 
         print('-- Added', name, 'as an inhibitory layer')
 
-    def load_MNIST(self, batch: int = 1, encoder=PoissonEncoder, intensity=intensity):
+    def add_recurrent_layer_exc_inh(self, exc_n: int, inh_n: int,
+                                    name: str = ('rec_exc', 'rec_inh'),
+                                    node: Nodes = LIF,
+                                    init_exc_w: float = 0.3, init_inh_w: float = -0.5,
+                                    exc_nu=(1e-4, 1e-2), inh_nu=(1e-2, 1e-4),
+                                    rule: bool = SIMPLE_STDP, **kwargs):
+        """
+        Create a Recurrent connection layer
+        :param exc_n:
+        :param inh_n:
+        :param name:
+        :param node:
+        :param init_exc_w:
+        :param init_inh_w:
+        :param exc_nu:
+        :param inh_nu:
+        :param rule:
+        :param kwargs:
+        :return:
+        """
+        # exc-neuron layer
+        exc_l = node(n=exc_n,
+                     traces=True,
+                     rest=kwargs.get('exc_rest', self.rest_voltage),
+                     restet=kwargs.get('exc_reset', self.reset_voltage),
+                     thresh=kwargs.get('exc_th', self.threshold),
+                     refrac=kwargs.get('exc_ref', self.refractory_period),
+                     tc_decay=kwargs.get('exc_tc_decay', 100.0),
+                     theta_plus=kwargs.get('exc_theta_plus', 0.05),
+                     tc_theta_decay=kwargs.get('exc_tc_theta_decay', 1e7),
+                     **kwargs
+                     )
+        # inh-neuron layer
+        inh_l = node(n=inh_n,
+                     traces=True,
+                     rest=kwargs.get('inh_rest', self.rest_voltage),
+                     restet=kwargs.get('inh_reset', self.reset_voltage),
+                     thresh=kwargs.get('inh_th', self.threshold),
+                     refrac=kwargs.get('inh_ref', self.refractory_period),
+                     tc_decay=kwargs.get('inh_tc_decay', 100.0),
+                     theta_plus=kwargs.get('inh_theta_plus', 0.05),
+                     tc_theta_decay=kwargs.get('inh_tc_theta_decay', 1e7),
+                     **kwargs
+                     )
+
+        self.network.add_layer(layer=exc_l, name=name[0])
+        self.network.add_layer(layer=inh_l, name=name[1])
+
+        if rule == self.SIMPLE_STDP:
+            l_rule = PostPre
+        elif rule == self.WEIGHT_DEPENDENT_STDP:
+            l_rule = WeightDependentPostPre
+        elif rule == self.NO_STDP:
+            l_rule = NoOp
+        else:
+            l_rule = NoOp
+
+        """ Normal Connection (input to exc & inh)"""
+        input_exc_connection = Connection(
+            source=self.pre['layer'],  # input
+            target=exc_l,
+            w=self.weight_simple_rand(n=self.pre['layer'].n, m=exc_n, scale=kwargs.get('scale', 0.3)),
+            wmax=kwargs.get('wmax', 1.0),
+            wmin=kwargs.get('wmin', -1.0),
+            update_rule=l_rule,
+            nu=kwargs.get('nu', (1e-4, 1e-2)),
+            norm=kwargs.get('norm', 78.4)
+        )
+        input_inh_connection = Connection(
+            source=self.pre['layer'],  # input
+            target=inh_l,
+            w=self.weight_simple_rand(n=self.pre['layer'].n, m=inh_n, scale=kwargs.get('scale', 0.3)),
+            wmax=kwargs.get('wmax', 1.0),
+            wmin=kwargs.get('wmin', -1.0),
+            update_rule=l_rule,
+            nu=kwargs.get('nu', (1e-4, 1e-2)),
+            norm=kwargs.get('norm', 78.4)
+        )
+
+        self.network.add_connection(input_exc_connection,
+                                    source=self.pre['name'],
+                                    target=name[0], )
+        self.network.add_connection(input_inh_connection,
+                                    source=self.pre['name'],
+                                    target=name[1], )
+
+        """ Reccurent Connecion (exc and inh)"""
+        exc_inh_connection = Connection(
+            source=exc_l,
+            target=inh_l,
+            w=self.weight_simple_rand(exc_n, inh_n, init_exc_w),
+            wmax=kwargs.get('exc_wmax', 1.0),
+            wmin=kwargs.get('exc_wmin', 0),
+            update_rule=l_rule,
+            nu=exc_nu,
+            norm=kwargs.get('exc_norm', exc_n / 10)
+        )
+        inh_exc_connection = Connection(
+            source=inh_l,
+            target=exc_l,
+            w=self.weight_simple_rand(inh_n, exc_n, init_inh_w),
+            wmax=kwargs.get('inh_wmax', 0),
+            wmin=kwargs.get('inh_wmin', -1.0),
+            update_rule=l_rule,
+            nu=inh_nu,
+            norm=kwargs.get('inh_norm', inh_n / 10)
+        )
+
+        self.network.add_connection(
+            exc_inh_connection,
+            source=name[0],
+            target=name[1]
+        )
+        self.network.add_connection(
+            inh_exc_connection,
+            source=name[1],
+            target=name[0]
+        )
+
+        """ Setting monitors """
+        exc_monitor = Monitor(
+            obj=exc_l,
+            state_vars=('s', 'v'),
+            time=self.T
+        )
+        inh_monitor = Monitor(
+            obj=inh_l,
+            state_vars=('s', 'v'),
+            time=self.T
+        )
+
+        self.monitors[name[0]] = exc_monitor
+        self.monitors[name[1]] = inh_monitor
+        self.network.add_monitor(monitor=exc_monitor, name=name[0])
+        self.network.add_monitor(monitor=inh_monitor, name=name[1])
+
+        self.pre['layer'] = exc_l
+        self.pre['name'] = name[0]
+        print(' -- Added Reccurent layer (exc: {}, inh: {})'.format(exc_n, inh_n))
+
+    def load_MNIST(self, batch: int = 1,
+                   encoder=PoissonEncoder,
+                   intensity=intensity,
+                   **kwargs):
         """
         Load MNIST dataset from pyTorch.
         :param batch:
@@ -336,7 +479,8 @@ class Spiking:
                                 train=True,
                                 download=True,
                                 transform=transforms.Compose(
-                                    [transforms.ToTensor(), transforms.Lambda(lambda x: x * intensity)]
+                                    [transforms.ToTensor(),
+                                     transforms.Lambda(lambda x: x*intensity + kwargs.get('min_lim', 0))]
                                 ))
         self.test_data = MNIST(encoder(time=self.T, dt=self.dt),
                                None,
@@ -344,7 +488,8 @@ class Spiking:
                                train=False,
                                download=True,
                                transform=transforms.Compose(
-                                   [transforms.ToTensor(), transforms.Lambda(lambda x: x * intensity)]
+                                   [transforms.ToTensor(),
+                                    transforms.Lambda(lambda x: x*intensity + kwargs.get('min_lim', 0))]
                                ))
 
         self.train_loader = DataLoader(self.train_data,
@@ -831,7 +976,8 @@ class Spiking:
                          dpi: int = DPI,
                          c_max: float = 1.0,
                          c_min: float = -1.0,
-                         save: bool = True):
+                         save: bool = True,
+                         **kwargs):
         """
         Plot weight maps of output connection with the shape of [f_shape].
         :param f_shape:
@@ -878,7 +1024,7 @@ class Spiking:
                 abs_max = abs(wmax) if abs(wmax) > abs(wmin) else abs(wmin)
 
                 im = ax.imshow(tmp_weight, cmap='coolwarm', vmax=abs_max, vmin=(-abs_max))
-                ax.set_title('map({})'.format(index))
+                # ax.set_title('map({})'.format(index))
                 ax.tick_params(labelbottom=False,
                                labelleft=False,
                                labelright=False,
@@ -894,6 +1040,7 @@ class Spiking:
         cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
         fig.colorbar(im, cax=cbar_ax)
 
+        fig.suptitle(kwargs.get('title', ''))
         if not save:
             plt.show()
         else:
@@ -944,7 +1091,8 @@ class Spiking:
             self.plot_weight_maps(f_shape=kwargs.get('f_shape', (3, 3)),
                                   layer=kwargs.get('layer', None),
                                   file_name='{}_weight_maps.png'.format(kwargs['prefix']),
-                                  save=kwargs['save'])
+                                  save=kwargs['save'],
+                                  title=kwargs.get('title', ''))
         elif plt_type == 'p_img':
             pass
         elif plt_type == 'v':
@@ -987,7 +1135,7 @@ class Spiking:
         :return:
         """
         for layer in self.network.layers:
-            self.network.layers[layer].train(False)
+            self.network.train(False)
 
     def start_learning(self):
         """
@@ -995,7 +1143,7 @@ class Spiking:
         :return:
         """
         for layer in self.network.layers:
-            self.network.layers[layer].train(True)
+            self.network.train(True)
 
     @staticmethod
     def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:
