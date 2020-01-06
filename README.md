@@ -1,5 +1,5 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2019.12.17-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2020.01.06-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -115,7 +115,7 @@ is ok (actually this function is my backup data, so it's good for you to use thi
   
   
 ## update list
-* 2019.12.17
+* 2019.12.17  
     Small bug fix & Recurrent layer is available.  
     The function adding a Recurrent layer is available, but a network tuning is difficult.
     In this case, the last layer of the network is excitatory neurons.

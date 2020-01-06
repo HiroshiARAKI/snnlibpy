@@ -85,7 +85,7 @@ class Spiking:
 
     # ======================== #
 
-    def __init__(self, input_l: int, obs_time: int = 500, dt: float = 1.0,
+    def __init__(self, input_l: int, obs_time: int = 300, dt: float = 1.0,
                  input_shape=(1, 28, 28)):
         """
         Constructor: Build SNN easily. Initialize many variables in backend.
@@ -866,6 +866,15 @@ class Spiking:
 
         plt.close()
 
+    @staticmethod
+    def plot_spikes_scatter(spikes, save=False, dpi=DPI, file_name='spike.png'):
+        plt.ioff()
+        plot_spikes(spikes)
+        if not save:
+            plt.show()
+        else:
+            plt.savefig(file_name, dpi=dpi)
+
     def plot_spikes(self, save: bool = False, index: int = 0,
                     file_name: str = 'spikes.png', dpi: int = DPI):
         """
@@ -1134,16 +1143,14 @@ class Spiking:
         Stop learning
         :return:
         """
-        for layer in self.network.layers:
-            self.network.train(False)
+        self.network.train(False)
 
     def start_learning(self):
         """
         (Re)start learning
         :return:
         """
-        for layer in self.network.layers:
-            self.network.train(True)
+        self.network.train(True)
 
     @staticmethod
     def weight_norm(n: int, m: int, mu: float = 0.3, sigma: float = 0.3) -> torch.Tensor:
