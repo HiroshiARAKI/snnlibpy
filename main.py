@@ -1,4 +1,4 @@
-from snnlib import Spiking
+from wbn import Spiking
 
 
 if __name__ == '__main__':
@@ -33,11 +33,11 @@ if __name__ == '__main__':
     snn.to_gpu()
 
     # Plot weight maps before training
-    snn.plot(plt_type='wmps', prefix='0')
+    snn.plot(plt_type='wmps', prefix='0', f_shape=(10, 10))
 
     # Make my network run
     for i in range(5):
-        snn.run(tr_size=10000,       # training data size
+        snn.run(tr_size=60000,       # training data size
                 unsupervised=True,   # do unsupervised learning?
                 # alpha=0.8,           # assignment decay
                 debug=True,          # Do you wanna watch neuron's assignments?
@@ -45,13 +45,13 @@ if __name__ == '__main__':
                 # ts_size=5000,        # If you have little time for experiments, be able to reduce test size
                 )
 
-        snn.plot(plt_type='wmps', prefix='{}'.format(i+1))  # plot maps
+        snn.plot(plt_type='wmps', prefix='{}'.format(i+1), f_shape=(10, 10))  # plot maps
 
     # Plot test accuracy transition
     snn.plot(plt_type='history', prefix='result')
 
     # Plot weight maps after training
-    snn.plot(plt_type='wmps', prefix='result')
+    snn.plot(plt_type='wmps', prefix='result', f_shape=(10, 10))
 
     # Plot output spike trains after training
     snn.plot(plt_type='sp', range=10)

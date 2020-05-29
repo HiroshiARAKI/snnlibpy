@@ -33,7 +33,7 @@ import os
 import sys
 from time import time
 
-__version__ = '0.2.4'
+__version__ = '0.2.5'
 
 
 class Spiking:
@@ -558,7 +558,7 @@ class Spiking:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
             # run!
-            self.network.run(inpts=inputs_img, time=self.T, input_time_dim=1)
+            self.network.run(inputs_img, time=self.T, input_time_dim=1)
 
             if unsupervised:
                 # labels used by assigning
@@ -566,7 +566,7 @@ class Spiking:
                 # output spike trains
                 spikes[i % interval] = self.monitors[self.pre['name']].get('s').squeeze()
 
-            self.network.reset_()
+            self.network.reset_state_variables()
 
             if i >= tr_size:  # if reach training size you specified, break for loop
                 break
@@ -1063,6 +1063,7 @@ class Spiking:
         :param kwargs:
         :return:
         """
+        plt.ioff()
         if 'save' not in kwargs:
             kwargs['save'] = True
         if 'prefix' not in kwargs:

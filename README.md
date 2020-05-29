@@ -1,5 +1,5 @@
 # WrappedBindsNET
-![update](https://img.shields.io/badge/last%20update-2020.01.06-lightgray.svg?style=flat)
+![update](https://img.shields.io/badge/last%20update-2020.05.29-lightgray.svg?style=flat)
 
 これはBindsNETと呼ばれるPyTorchベースのSpiking Neural Networksフレームワークをさらに使いやすくしよう，
 というコンセプトのもと作成中．  
@@ -19,7 +19,7 @@ This library is used by private myself, but if you want to use it, feel free to 
 
 * OS.........MacOS 10.15 or Ubuntu 16.04 LTS
 * Python.....3.6.* or 3.7.*
-* BindsNET...0.2.5
+* BindsNET...0.2.7 (PyPI最新版の対応になりました conforms to PyPI latest ver.)
 * PyTorch....1.10 
   (GPU: torch... 1.3.0+cu92, torchvision... 0.4.1+cu92)
 
