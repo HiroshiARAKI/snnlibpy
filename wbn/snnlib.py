@@ -11,7 +11,6 @@ snnlib.py
 from .additional_encoders import FixedFrequencyEncoder, LIFEncoder, LIFEncoder2
 
 import torch
-from torchvision import __version__ as tv_ver
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
@@ -94,8 +93,6 @@ class Spiking:
         """
         print('You Called Spiking Neural Networks Library "WBN"!!')
         print('=> WrappedBindsNET (This Library) :version. %s' % __version__)
-        print('=> PyTorch :version. %s' % torch.__version__)
-        print('=> TorchVision :version. %s\n' % tv_ver)
 
         self.network: Network = Network()  # Core of SNN
 
