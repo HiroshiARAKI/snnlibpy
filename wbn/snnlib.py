@@ -32,7 +32,7 @@ import os
 import sys
 from time import time
 
-__version__ = '0.2.5'
+__version__ = '0.2.6'
 
 
 class Spiking:
@@ -94,7 +94,7 @@ class Spiking:
         print('You Called Spiking Neural Networks Library "WBN"!!')
         print('=> WrappedBindsNET (This Library) :version. %s' % __version__)
 
-        self.network: Network = Network()  # Core of SNN
+        self.network: Network = Network(dt=dt)  # Core of SNN
 
         self.layer_index = 0               # index of last fc-layer
         self.input_l = input_l             # num of input layer neurons
@@ -536,7 +536,7 @@ class Spiking:
         for i, data in progress:
             progress.set_description_str('\rProgress: %d / %d (%.4f seconds)' % (i, tr_size, time() - start))
 
-            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
 
             # assign labels
             if unsupervised and i % interval == 0 and i > 0:
@@ -632,7 +632,7 @@ class Spiking:
         print('\n===< Calculate Test accuracy >===')
         for i, data in progress:
             progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, ts_size))
-            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
@@ -661,12 +661,12 @@ class Spiking:
             labels.append(data["label"])
 
             # run!
-            self.network.run(inpts=inputs_img, time=self.T)
+            self.network.run(inputs=inputs_img, time=self.T)
 
             # get output spike trains
             spike_record[i % interval] = self.monitors[self.pre['name']].get("s").squeeze()
 
-            self.network.reset_()
+            self.network.reset_state_variables()
 
             if i >= ts_size:
                 break
@@ -704,7 +704,7 @@ class Spiking:
         print('\n===< Calculate Training accuracy >===')
         for i, data in progress:
             progress.set_description_str('\rCalculate Training accuracy ... %d / %d ' % (i, tr_size))
-            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
@@ -733,12 +733,12 @@ class Spiking:
             labels.append(data["label"])
 
             # run!
-            self.network.run(inpts=inputs_img, time=self.T)
+            self.network.run(inputs=inputs_img, time=self.T)
 
             # get output spike trains
             spike_record[i % interval] = self.monitors[self.pre['name']].get('s').squeeze()
 
-            self.network.reset_()
+            self.network.reset_state_variables()
 
             if i >= tr_size:
                 break
@@ -764,12 +764,12 @@ class Spiking:
         progress = tqdm(enumerate(self.train_loader))
         for i, data in progress:
             progress.set_description_str('\rAssign labels... %d / %d ' % (i, data_num))
-            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
             # run!
-            self.network.run(inpts=inputs_img, time=self.T)
+            self.network.run(inputs=inputs_img, time=self.T)
 
             # output spike trains
             spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
@@ -783,7 +783,7 @@ class Spiking:
             for j, l in enumerate(labels):
                 assignment[l][max_n_fire[j]] += 1
 
-            self.network.reset_()
+            self.network.reset_state_variables()
 
             if i >= data_num:
                 break
@@ -798,19 +798,19 @@ class Spiking:
         print('\n===< Calculate Test accuracy >===')
         for i, data in progress:
             progress.set_description_str('\rCalculate Test accuracy ... %d / %d ' % (i, self.test_data_num))
-            inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+            inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
 
             if self.gpu:
                 inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
             # run!
-            self.network.run(inpts=inputs_img, time=self.T)
+            self.network.run(inputs=inputs_img, time=self.T)
 
             # output spike trains
             spikes: torch.Tensor = self.monitors[self.pre['name']].get('s')
 
             # sum of the number of spikes
             sum_spikes = spikes.sum(0)
-            self.network.reset_()
+            self.network.reset_state_variables()
 
             for b in range(self.batch):
                 for l in range(self.label_num):
@@ -889,11 +889,11 @@ class Spiking:
         data = self.train_data[index]
         label = data['label']
 
-        inputs_img = {'in': data['encoded_image'].view(self.T, self.batch, 1, 28, 28)}
+        inputs_img = {'in': data['encoded_image'].view(int(self.T/self.dt), self.batch, 1, 28, 28)}
         if self.gpu:
             inputs_img = {key: img.cuda() for key, img in inputs_img.items()}
 
-        self.network.run(inpts=inputs_img, time=self.T)
+        self.network.run(inputs=inputs_img, time=self.T)
 
         spikes = {}
         for m_name in self.monitors:
@@ -1121,6 +1121,8 @@ class Spiking:
         for l in layers:
             print(' '+l+'('+str(layers[l].n)+')', end='\n    |\n')
         print('  [END]')
+        print('=============================')
+        print('Simulation Time: {}, dt: {}'.format(self.T, self.dt))
         print('=============================')
 
     def to_gpu(self):
